@@ -1,7 +1,10 @@
 package main
 
-import "github.com/seashairo/goboy/internal/goboy"
+import (
+	"github.com/seashairo/goboy/internal/goboy"
+)
 
 func main() {
-	goboy.GoBoy()
+	emulator := goboy.NewEmulator()
+	emulator.Run()
 }
