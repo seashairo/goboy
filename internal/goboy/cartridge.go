@@ -413,3 +413,11 @@ func LoadCartridge(path string) Cartridge {
 
 	return cartridge
 }
+
+func (cartridge *Cartridge) read(address uint16) byte {
+	return cartridge.romData[address]
+}
+
+func (cartridge *Cartridge) write(address uint16, value byte) {
+	panic("Can't write to ROM")
+}

@@ -1,12 +1,17 @@
 package goboy
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type CPU struct {
+	registers Registers
 }
 
 func NewCPU() CPU {
-	return CPU{}
+	return CPU{
+		registers: NewRegisters(),
+	}
 }
 
 func (cpu *CPU) Tick() {

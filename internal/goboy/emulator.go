@@ -5,28 +5,28 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/cpu_instrs.gb"
+const ROM_PATH = "./data/roms/pokemon_red.gb"
 
 type Emulator struct {
 	running bool
 	paused  bool
 	ticks   uint64
 
-	cpu       CPU
-	ppu       PPU
-	timer     Timer
-	cartridge Cartridge
+	cpu   CPU
+	ppu   PPU
+	timer Timer
+	bus   Bus
 }
 
 func NewEmulator() Emulator {
 	return Emulator{
-		running:   false,
-		paused:    false,
-		ticks:     0,
-		cpu:       NewCPU(),
-		ppu:       NewPPU(),
-		timer:     NewTimer(),
-		cartridge: LoadCartridge(ROM_PATH),
+		running: false,
+		paused:  false,
+		ticks:   0,
+		cpu:     NewCPU(),
+		ppu:     NewPPU(),
+		timer:   NewTimer(),
+		bus:     NewBus(ROM_PATH),
 	}
 }
 
