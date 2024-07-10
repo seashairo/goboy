@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/pokemon_red.gb"
+const ROM_PATH = "./data/roms/blargg/cpu_instrs.gb"
 
 type Emulator struct {
 	running bool

@@ -368,50 +368,66 @@ func LoadCartridge(path string) Cartridge {
 		[]byte{romData[0x14E], romData[0x14F]},
 	)
 
-	headerChecksum := byte(0)
-	for address := 0x0134; address <= 0x014C; address++ {
-		headerChecksum = headerChecksum - romData[address] - 1
-	}
-
-	globalChecksum := uint16(0)
-	for address := 0x0000; address < 0x014E; address++ {
-		globalChecksum = globalChecksum + uint16(romData[address])
-	}
-
-	for address := 0x0150; address < len(romData); address++ {
-		globalChecksum = globalChecksum + uint16(romData[address])
-	}
-
 	cartridge := Cartridge{
 		filename: path,
 		romData:  romData,
 		header:   header,
 	}
 
+	cartridge.debugPrint()
+
+	return cartridge
+}
+
+func (cartridge *Cartridge) debugPrint() {
+	h := cartridge.header
+
 	fmt.Println("Loaded cartridge:")
-	fmt.Printf("\tTitle: %s\n", header.GetFriendlyTitle())
-	fmt.Printf("\tLicensee: %s (0x%2.2x, %s)\n", header.GetFriendlyLicenseeName(), header.licenseeCode, string(header.newLicenseeCode[:]))
-	fmt.Printf("\tCartridge Type: %s (0x%2.2x)\n", header.GetFriendlyType(), header.cartridgeType)
-	fmt.Printf("\tROM Size: %s (0x%2.2x)\n", header.GetFriendlyRomSize(), header.romSize)
-	fmt.Printf("\tRAM Size: %s (0x%2.2x)\n", header.GetFriendlyRamSize(), header.ramSize)
-	fmt.Printf("\tDestination: %s (0x%2.2x)\n", header.GetFriendlyDestinationName(), header.destinationCode)
-	fmt.Printf("\tVersion: 0x%2.2x\n", header.version)
+	fmt.Printf("\tTitle: %s\n", h.GetFriendlyTitle())
+	fmt.Printf("\tLicensee: %s (0x%2.2x, %s)\n", h.GetFriendlyLicenseeName(), h.licenseeCode, string(h.newLicenseeCode[:]))
+	fmt.Printf("\tCartridge Type: %s (0x%2.2x)\n", h.GetFriendlyType(), h.cartridgeType)
+	fmt.Printf("\tROM Size: %s (0x%2.2x)\n", h.GetFriendlyRomSize(), h.romSize)
+	fmt.Printf("\tRAM Size: %s (0x%2.2x)\n", h.GetFriendlyRamSize(), h.ramSize)
+	fmt.Printf("\tDestination: %s (0x%2.2x)\n", h.GetFriendlyDestinationName(), h.destinationCode)
+	fmt.Printf("\tVersion: 0x%2.2x\n", h.version)
+
+	headerChecksum := cartridge.calculateHeaderChecksum()
+	globalChecksum := cartridge.calculateGlobalChecksum()
 
 	var headerChecksumString = "PASS"
-	if header.headerChecksum != headerChecksum {
+	if h.headerChecksum != headerChecksum {
 		headerChecksumString = fmt.Sprintf("FAIL - got 0x%2.2x", headerChecksum)
 	}
 
-	fmt.Printf("\tHeader Checksum: 0x%2.2x (%s)\n", header.headerChecksum, headerChecksumString)
+	fmt.Printf("\tHeader Checksum: 0x%2.2x (%s)\n", h.headerChecksum, headerChecksumString)
 
 	var globalChecksumString = "PASS"
-	if header.globalChecksum != globalChecksum {
+	if h.globalChecksum != globalChecksum {
 		globalChecksumString = fmt.Sprintf("FAIL - got 0x%2.2x", globalChecksum)
 	}
 
-	fmt.Printf("\tGlobal Checksum: 0x%2.2x (%s)\n", header.globalChecksum, globalChecksumString)
+	fmt.Printf("\tGlobal Checksum: 0x%2.2x (%s)\n", h.globalChecksum, globalChecksumString)
+}
 
-	return cartridge
+func (cartridge *Cartridge) calculateHeaderChecksum() byte {
+	headerChecksum := byte(0)
+	for address := 0x0134; address <= 0x014C; address++ {
+		headerChecksum = headerChecksum - cartridge.romData[address] - 1
+	}
+	return headerChecksum
+}
+
+func (cartridge *Cartridge) calculateGlobalChecksum() uint16 {
+	globalChecksum := uint16(0)
+	for address := 0x0000; address < 0x014E; address++ {
+		globalChecksum = globalChecksum + uint16(cartridge.romData[address])
+	}
+
+	for address := 0x0150; address < len(cartridge.romData); address++ {
+		globalChecksum = globalChecksum + uint16(cartridge.romData[address])
+	}
+
+	return globalChecksum
 }
 
 func (cartridge *Cartridge) read(address uint16) byte {
