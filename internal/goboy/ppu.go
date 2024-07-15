@@ -1,7 +1,5 @@
 package goboy
 
-import "fmt"
-
 type PPU struct {
 }
 
@@ -10,5 +8,4 @@ func NewPPU() PPU {
 }
 
 func (ppu *PPU) Tick() {
-	fmt.Println("PPU tick")
 }

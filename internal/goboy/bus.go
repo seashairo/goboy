@@ -1,7 +1,5 @@
 package goboy
 
-import "fmt"
-
 // @see https://gbdev.io/pandocs/Memory_Map.html
 // 0x0000 - 0x3FFF : ROM Bank 00
 // 0x4000 - 0x7FFF : ROM Bank 01 - switchable
@@ -28,18 +26,36 @@ func NewBus(cartridgePath string) Bus {
 	}
 }
 
-func (bus *Bus) read(address uint16) uint8 {
+func (bus *Bus) readByte(address uint16) byte {
 	if address < 0x4000 {
-		return bus.cartridge.read(address)
+		return bus.cartridge.readByte(address)
 	}
 
-	panic(fmt.Sprintf("Reading from %2.2x not supported", address))
+	// panic(fmt.Sprintf("Reading from %2.2X not supported", address))
+	return 0
 }
 
-func (bus *Bus) write(address uint16, value byte) {
+func (bus *Bus) readWord(address uint16) uint16 {
 	if address < 0x4000 {
-		bus.cartridge.write(address, value)
+		return bus.cartridge.readWord(address)
 	}
 
-	panic(fmt.Sprintf("Writing to %2.2x not supported", address))
+	// panic(fmt.Sprintf("Reading from %2.2X not supported", address))
+	return 0
+}
+
+func (bus *Bus) writeByte(address uint16, value byte) {
+	if address < 0x4000 {
+		bus.cartridge.writeByte(address, value)
+	}
+
+	// panic(fmt.Sprintf("Writing to %2.2X not supported", address))
+}
+
+func (bus *Bus) writeWord(address uint16, value uint16) {
+	if address < 0x4000 {
+		bus.cartridge.writeWord(address, value)
+	}
+
+	// panic(fmt.Sprintf("Writing to %2.2X not supported", address))
 }

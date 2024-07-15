@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	emulator := goboy.NewEmulator()
-	emulator.Run()
+	gameboy := goboy.NewGameBoy()
+	gameboy.Run()
 }

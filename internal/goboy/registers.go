@@ -1,84 +1,45 @@
 package goboy
 
-// Represents a 16-bit register. Each register can be accessed as a single
-// 16-bit value or as two 8-bit values. For example, the AF register can be read
-// as a single 16-bit value or as two 8-bit values: A and F
-type register struct {
-	hi byte
-	lo byte
-}
+import "fmt"
 
-// Creates a new register from a 16-bit value. By default, registers are
-// initialized with 0 values which are then overwritten by the boot rom
-func NewRegister(value uint16) register {
-	r := register{0, 0}
-	r.Set(value)
+// @see https://gbdev.io/pandocs/CPU_Registers_and_Flags.html
 
-	return r
-}
+type CpuRegister byte
 
-// Returns the high byte of the register
-func (r *register) Hi() byte {
-	return r.hi
-}
+const (
+	R_NONE CpuRegister = iota
 
-// Returns the low byte of the register
-func (r *register) Lo() byte {
-	return r.lo
-}
+	// The Game Boy has 8 8-bit registers which can be combined to form 4 16-bit
+	// registers
+	R_A
+	// The F reigster is special, and is used to store information about the most
+	// recent instruction which has affected flags
+	R_F
+	R_B
+	R_C
+	R_D
+	R_E
+	R_H
+	R_L
 
-// Returns the register as a single 16-bit value
-func (r *register) Value() uint16 {
-	return BytesToUint16(r.hi, r.lo)
-}
+	// These are the register pairings from 8 to 16-bit registers
+	R_AF
+	R_BC
+	R_DE
+	R_HL
 
-// Sets the hi byte of the register
-func (r *register) SetHi(value byte) {
-	r.hi = value
-}
+	// The stack pointer and program counter are always 16-bit registers and do
+	// not have a subdivided part
+	R_SP
+	R_PC
+)
 
-// Sets the lo byte of the register
-func (r *register) SetLo(value byte) {
-	r.lo = value
-}
-
-// Sets the register as a single 16-bit value by setting both the hi and lo
-// bytes of the register
-func (r *register) Set(value uint16) {
-	hi, lo := Uint16ToBytes(value)
-	r.SetHi(hi)
-	r.SetLo(lo)
-}
-
-type Registers struct {
-	AF register
-	BC register
-	DE register
-	HL register
-	SP register
-	PC register
-}
-
-func NewRegisters() Registers {
-	return Registers{
-		AF: NewRegister(0x0000),
-		BC: NewRegister(0x0000),
-		DE: NewRegister(0x0000),
-		HL: NewRegister(0x0000),
-		SP: NewRegister(0x0000),
-		PC: NewRegister(0x0000),
-	}
-}
-
-// The lower 8 bits of the AF register form the Flags register. The Flags
-// register contains information about the result of the most recent instruction
-// that has affected flags (e.g. ADD, SUB, INC, DEC, etc.)
-type flag byte
+type CpuFlag byte
 
 const (
 	// The zero flag is set if and only if the result of an operation is zero.
 	// Used by conditional jumps.
-	FLAG_Z flag = 1 << 7
+	FLAG_Z CpuFlag = 7
 	// These flags are used by the DAA instruction only. N indicates whether the
 	// previous instruction has been a subtraction, and H indicates carry for the
 	// lower 4 bits of the result. DAA also uses the C flag, which must indicate
@@ -88,8 +49,8 @@ const (
 	// indicate carry-outs of BCD digits, DAA is ineffective for 16-bit operations
 	// (which have 4 digits), and use for INC/DEC operations (which do not affect
 	// C-flag) has limits.
-	FLAG_N flag = 1 << 6
-	FLAG_H flag = 1 << 5
+	FLAG_N CpuFlag = 6
+	FLAG_H CpuFlag = 5
 	// The carry flag is set in these cases:
 	// When the result of an 8-bit addition is higher than $FF.
 	// When the result of a 16-bit addition is higher than $FFFF.
@@ -97,21 +58,143 @@ const (
 	// 	Z80 and x86 CPUs, but unlike in 65XX and ARM CPUs).
 	// When a rotate/shift operation shifts out a “1” bit.
 	// Used by conditional jumps and instructions such as ADC, SBC, RL, RLA, etc.
-	FLAG_C flag = 1 << 4
+	FLAG_C CpuFlag = 4
 )
 
-func (r *Registers) SetFlag(flag flag, value bool) {
-	if value {
-		r.AF.lo |= byte(flag)
-	} else {
-		r.AF.lo &= byte(^flag)
+type CpuRegisters struct {
+	a byte
+	f byte
+	b byte
+	c byte
+	d byte
+	e byte
+	h byte
+	l byte
+
+	sp uint16
+	pc uint16
+}
+
+func NewCpuRegisters() CpuRegisters {
+	return CpuRegisters{
+		a:  0x01,
+		f:  0xB0,
+		b:  0x00,
+		c:  0x13,
+		d:  0x00,
+		e:  0xD8,
+		h:  0x01,
+		l:  0x4D,
+		sp: 0xFFFE,
+		pc: 0x0100,
 	}
 }
 
-func (r *Registers) GetFlag(flag flag) bool {
-	return r.AF.lo&byte(flag) == 1
+func (registers *CpuRegisters) read(register CpuRegister) uint16 {
+	switch register {
+	case R_A:
+		return uint16(registers.a)
+	case R_F:
+		return uint16(registers.f)
+	case R_B:
+		return uint16(registers.b)
+	case R_C:
+		return uint16(registers.c)
+	case R_D:
+		return uint16(registers.d)
+	case R_E:
+		return uint16(registers.e)
+	case R_H:
+		return uint16(registers.h)
+	case R_L:
+		return uint16(registers.l)
+	case R_AF:
+		return BytesToUint16(registers.a, registers.f)
+	case R_BC:
+		return BytesToUint16(registers.b, registers.c)
+	case R_DE:
+		return BytesToUint16(registers.d, registers.e)
+	case R_HL:
+		return BytesToUint16(registers.h, registers.l)
+	case R_PC:
+		return registers.pc
+	case R_SP:
+		return registers.sp
+	default:
+		return 0
+	}
 }
 
-func (r *Registers) ResetFlags() {
-	r.AF.SetLo(0)
+func (registers *CpuRegisters) write(register CpuRegister, value uint16) {
+	switch register {
+	case R_A:
+		registers.a = byte(value)
+	case R_F:
+		registers.f = byte(value)
+	case R_B:
+		registers.b = byte(value)
+	case R_C:
+		registers.c = byte(value)
+	case R_D:
+		registers.d = byte(value)
+	case R_E:
+		registers.e = byte(value)
+	case R_H:
+		registers.h = byte(value)
+	case R_L:
+		registers.l = byte(value)
+	case R_AF:
+		registers.a, registers.f = Uint16ToBytes(value)
+	case R_BC:
+		registers.b, registers.c = Uint16ToBytes(value)
+	case R_DE:
+		registers.d, registers.e = Uint16ToBytes(value)
+	case R_HL:
+		registers.h, registers.l = Uint16ToBytes(value)
+	case R_PC:
+		registers.pc = value
+	case R_SP:
+		registers.sp = value
+	default:
+		break
+	}
+}
+
+func (registers *CpuRegisters) setFlag(flag CpuFlag, value bool) {
+	registers.f = SetBit(registers.f, byte(flag), value)
+}
+
+func (registers *CpuRegisters) readFlag(flag CpuFlag) bool {
+	return GetBit(registers.f, byte(flag))
+}
+
+func (registers *CpuRegisters) setFlags(z bool, n bool, h bool, c bool) {
+	registers.setFlag(FLAG_Z, z)
+	registers.setFlag(FLAG_N, n)
+	registers.setFlag(FLAG_H, h)
+	registers.setFlag(FLAG_C, c)
+}
+
+func (registers *CpuRegisters) debugPrint() {
+	fmt.Printf(
+		"Registers - A: 0x%2.2X, F: 0x%2.2X, B: 0x%2.2X, C: 0x%2.2X, D: 0x%2.2X, E: 0x%2.2X, H: 0x%2.2X, L: 0x%2.2X, SP: 0x%2.2X, PC: 0x%2.2X\n",
+		registers.a,
+		registers.f,
+		registers.b,
+		registers.c,
+		registers.d,
+		registers.e,
+		registers.h,
+		registers.l,
+		registers.sp,
+		registers.pc,
+	)
+
+	fmt.Printf(
+		"Flags - Z: %t, N: %t, H: %t, C: %t\n",
+		registers.readFlag(FLAG_Z),
+		registers.readFlag(FLAG_N),
+		registers.readFlag(FLAG_H),
+		registers.readFlag(FLAG_C),
+	)
 }
