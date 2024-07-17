@@ -434,10 +434,6 @@ func (cartridge *Cartridge) readByte(address uint16) byte {
 	return cartridge.romData[address]
 }
 
-func (cartridge *Cartridge) readWord(address uint16) uint16 {
-	return BytesToUint16(cartridge.romData[address+1], cartridge.romData[address])
-}
-
 func (cartridge *Cartridge) writeByte(address uint16, value byte) {
 	panic("Can't write to ROM")
 }

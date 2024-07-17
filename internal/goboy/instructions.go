@@ -610,7 +610,7 @@ var instructions = [0x100]instruction{
 		addN8SP(cpu)
 	},
 	0xEA: func(cpu *CPU) {
-		ldR8ToA16(cpu, R_A)
+		ldR8ToN16(cpu, R_A)
 	},
 	0xEB: func(cpu *CPU) {
 		invalidInstruction(cpu)
@@ -737,9 +737,8 @@ func ldN8ToMR16(cpu *CPU, dest CpuRegister) {
 	cpu.bus.writeByte(address, n8)
 }
 
-func ldR8ToA16(cpu *CPU, src CpuRegister) {
-	a16 := readWordFromPC(cpu)
-	dest := cpu.bus.readWord(a16)
+func ldR8ToN16(cpu *CPU, src CpuRegister) {
+	dest := readWordFromPC(cpu)
 	cpu.bus.writeByte(dest, byte(cpu.registers.read(src)))
 }
 
