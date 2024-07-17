@@ -37,6 +37,9 @@ var instructions = [0x100]instruction{
 	0x08: func(cpu *CPU) {
 		ldR16ToA16(cpu, R_SP)
 	},
+	0x09: func(cpu *CPU) {
+		addR16(cpu, R_BC)
+	},
 	0x0A: func(cpu *CPU) {
 		ldMR16ToR8(cpu, R_BC, R_A)
 	},
@@ -72,6 +75,9 @@ var instructions = [0x100]instruction{
 	},
 	0x18: func(cpu *CPU) {
 		jr(cpu, true)
+	},
+	0x19: func(cpu *CPU) {
+		addR16(cpu, R_DE)
 	},
 	0x1A: func(cpu *CPU) {
 		ldMR16ToR8(cpu, R_DE, R_A)
@@ -113,6 +119,9 @@ var instructions = [0x100]instruction{
 	0x28: func(cpu *CPU) {
 		jr(cpu, cpu.registers.readFlag(FLAG_Z))
 	},
+	0x29: func(cpu *CPU) {
+		addR16(cpu, R_HL)
+	},
 	0x2A: func(cpu *CPU) {
 		ldMR16ToR8(cpu, R_HL, R_A)
 		incR16(cpu, R_HL)
@@ -150,6 +159,9 @@ var instructions = [0x100]instruction{
 	},
 	0x38: func(cpu *CPU) {
 		jr(cpu, !cpu.registers.readFlag(FLAG_C))
+	},
+	0x39: func(cpu *CPU) {
+		addR16(cpu, R_SP)
 	},
 	0x3A: func(cpu *CPU) {
 		ldMR16ToR8(cpu, R_HL, R_A)
@@ -366,6 +378,126 @@ var instructions = [0x100]instruction{
 	0x7F: func(cpu *CPU) {
 		ldR8ToR8(cpu, R_A, R_A)
 	},
+	0x80: func(cpu *CPU) {
+		addR8(cpu, R_B)
+	},
+	0x81: func(cpu *CPU) {
+		addR8(cpu, R_C)
+	},
+	0x82: func(cpu *CPU) {
+		addR8(cpu, R_D)
+	},
+	0x83: func(cpu *CPU) {
+		addR8(cpu, R_E)
+	},
+	0x84: func(cpu *CPU) {
+		addR8(cpu, R_H)
+	},
+	0x85: func(cpu *CPU) {
+		addR8(cpu, R_L)
+	},
+	0x86: func(cpu *CPU) {
+		addMR16(cpu, R_HL)
+	},
+	0x87: func(cpu *CPU) {
+		addR8(cpu, R_A)
+	},
+	0x88: func(cpu *CPU) {
+		adcR8(cpu, R_B)
+	},
+	0x89: func(cpu *CPU) {
+		adcR8(cpu, R_C)
+	},
+	0x8A: func(cpu *CPU) {
+		adcR8(cpu, R_D)
+	},
+	0x8B: func(cpu *CPU) {
+		adcR8(cpu, R_E)
+	},
+	0x8C: func(cpu *CPU) {
+		adcR8(cpu, R_H)
+	},
+	0x8D: func(cpu *CPU) {
+		adcR8(cpu, R_L)
+	},
+	0x8E: func(cpu *CPU) {
+		adcMR16(cpu, R_HL)
+	},
+	0x8F: func(cpu *CPU) {
+		adcR8(cpu, R_A)
+	},
+	0x90: func(cpu *CPU) {
+		subR8(cpu, R_B)
+	},
+	0x91: func(cpu *CPU) {
+		subR8(cpu, R_C)
+	},
+	0x92: func(cpu *CPU) {
+		subR8(cpu, R_D)
+	},
+	0x93: func(cpu *CPU) {
+		subR8(cpu, R_E)
+	},
+	0x94: func(cpu *CPU) {
+		subR8(cpu, R_H)
+	},
+	0x95: func(cpu *CPU) {
+		subR8(cpu, R_L)
+	},
+	0x96: func(cpu *CPU) {
+		subMR16(cpu, R_HL)
+	},
+	0x97: func(cpu *CPU) {
+		subR8(cpu, R_A)
+	},
+	0x98: func(cpu *CPU) {
+		sbcR8(cpu, R_B)
+	},
+	0x99: func(cpu *CPU) {
+		sbcR8(cpu, R_C)
+	},
+	0x9A: func(cpu *CPU) {
+		sbcR8(cpu, R_D)
+	},
+	0x9B: func(cpu *CPU) {
+		sbcR8(cpu, R_E)
+	},
+	0x9C: func(cpu *CPU) {
+		sbcR8(cpu, R_H)
+	},
+	0x9D: func(cpu *CPU) {
+		sbcR8(cpu, R_L)
+	},
+	0x9E: func(cpu *CPU) {
+		sbcMR16(cpu, R_HL)
+	},
+	0x9F: func(cpu *CPU) {
+		sbcR8(cpu, R_A)
+	},
+	0xA0: func(cpu *CPU) {
+		andR8(cpu, R_B)
+	},
+	0xA1: func(cpu *CPU) {
+		andR8(cpu, R_C)
+	},
+	0xA2: func(cpu *CPU) {
+		andR8(cpu, R_D)
+	},
+	0xA3: func(cpu *CPU) {
+		andR8(cpu, R_E)
+	},
+	0xA4: func(cpu *CPU) {
+		andR8(cpu, R_H)
+	},
+	0xA5: func(cpu *CPU) {
+		andR8(cpu, R_L)
+	},
+	0xA6: func(cpu *CPU) {
+		andMR16(cpu, R_HL)
+	},
+	0xA7: func(cpu *CPU) {
+		andR8(cpu, R_A)
+	},
 	0xA8: func(cpu *CPU) {
 		xorR8(cpu, R_B)
 	},
@@ -389,6 +521,30 @@ var instructions = [0x100]instruction{
 	},
 	0xAF: func(cpu *CPU) {
 		xorR8(cpu, R_A)
+	},
+	0xB0: func(cpu *CPU) {
+		orR8(cpu, R_B)
+	},
+	0xB1: func(cpu *CPU) {
+		orR8(cpu, R_C)
+	},
+	0xB2: func(cpu *CPU) {
+		orR8(cpu, R_D)
+	},
+	0xB3: func(cpu *CPU) {
+		orR8(cpu, R_E)
+	},
+	0xB4: func(cpu *CPU) {
+		orR8(cpu, R_H)
+	},
+	0xB5: func(cpu *CPU) {
+		orR8(cpu, R_L)
+	},
+	0xB6: func(cpu *CPU) {
+		orMR16(cpu, R_HL)
+	},
+	0xB7: func(cpu *CPU) {
+		orR8(cpu, R_A)
 	},
 	0xB8: func(cpu *CPU) {
 		cpR8(cpu, R_B)
@@ -414,14 +570,56 @@ var instructions = [0x100]instruction{
 	0xBF: func(cpu *CPU) {
 		cpR8(cpu, R_A)
 	},
+	0xC6: func(cpu *CPU) {
+		addN8A(cpu)
+	},
+	0xCE: func(cpu *CPU) {
+		adcN8(cpu)
+	},
+	0xD3: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xD6: func(cpu *CPU) {
+		subN8(cpu)
+	},
+	0xDB: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xDD: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xDE: func(cpu *CPU) {
+		sbcN8(cpu)
+	},
 	0xE0: func(cpu *CPU) {
 		ldhR8ToA8(cpu, R_A)
 	},
 	0xE2: func(cpu *CPU) {
 		ldR8ToMR8(cpu, R_A, R_C)
 	},
+	0xE3: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xE4: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xE6: func(cpu *CPU) {
+		andN8(cpu)
+	},
+	0xE8: func(cpu *CPU) {
+		addN8SP(cpu)
+	},
 	0xEA: func(cpu *CPU) {
 		ldR8ToA16(cpu, R_A)
+	},
+	0xEB: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xEC: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xED: func(cpu *CPU) {
+		invalidInstruction(cpu)
 	},
 	0xEE: func(cpu *CPU) {
 		xorN8(cpu)
@@ -435,6 +633,12 @@ var instructions = [0x100]instruction{
 	0xF3: func(cpu *CPU) {
 		cpu.masterInterruptEnabled = false
 	},
+	0xF4: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xF6: func(cpu *CPU) {
+		orN8(cpu)
+	},
 	0xF8: func(cpu *CPU) {
 		ldR16E8ToR16(cpu, R_SP, R_HL)
 	},
@@ -443,6 +647,15 @@ var instructions = [0x100]instruction{
 	},
 	0xFA: func(cpu *CPU) {
 		ldA16ToR8(cpu, R_A)
+	},
+	0xFB: func(cpu *CPU) {
+		cpu.masterInterruptEnabled = true
+	},
+	0xFC: func(cpu *CPU) {
+		invalidInstruction(cpu)
+	},
+	0xFD: func(cpu *CPU) {
+		invalidInstruction(cpu)
 	},
 	0xFE: func(cpu *CPU) {
 		cpN8(cpu)
@@ -458,6 +671,11 @@ func readWordFromPC(cpu *CPU) uint16 {
 	hi := readByteFromPC(cpu)
 
 	return BytesToUint16(hi, lo)
+}
+
+// @see https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes
+func invalidInstruction(cpu *CPU) {
+	panic("this crashes the game boy")
 }
 
 func ldR8ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
@@ -627,21 +845,218 @@ func cpN8(cpu *CPU) {
 	cp(cpu, minuend, subtrahend)
 }
 
-func cpR8(cpu *CPU, r8 CpuRegister) {
+func cpR8(cpu *CPU, src CpuRegister) {
 	minuend := byte(cpu.registers.read(R_A))
-	subtrahend := byte(cpu.registers.read(r8))
+	subtrahend := byte(cpu.registers.read(src))
 	cp(cpu, minuend, subtrahend)
 }
 
-func cpMR8(cpu *CPU, r8 CpuRegister) {
+func cpMR8(cpu *CPU, src CpuRegister) {
 	minuend := cpu.bus.readByte(cpu.registers.read(R_A))
-	subtrahend := byte(cpu.registers.read(r8))
+	subtrahend := byte(cpu.registers.read(src))
 	cp(cpu, minuend, subtrahend)
 }
 
 func cp(cpu *CPU, minuend byte, subtrahend byte) {
-	cpu.registers.setFlag(FLAG_Z, minuend == subtrahend)
-	cpu.registers.setFlag(FLAG_N, true)
-	cpu.registers.setFlag(FLAG_H, minuend&0x0F < subtrahend*0x0F)
-	cpu.registers.setFlag(FLAG_C, minuend < subtrahend)
+	cpu.registers.setFlags(
+		minuend == subtrahend,
+		true,
+		minuend&0x0F < subtrahend*0x0F,
+		minuend < subtrahend,
+	)
+}
+
+func addR8(cpu *CPU, src CpuRegister) {
+	a := cpu.registers.read(R_A)
+	addend := cpu.registers.read(src)
+	result := a + addend
+
+	cpu.registers.write(R_A, uint16(result))
+
+	cpu.registers.setFlags(
+		result == 0,
+		false,
+		((a&0x0F)+(addend&0x0F)) > 0x0F,
+		result > 0xFF,
+	)
+}
+
+func addR16(cpu *CPU, src CpuRegister) {
+	hl := cpu.registers.read(R_HL)
+	addend := cpu.registers.read(src)
+	result := hl + addend
+
+	cpu.registers.write(R_HL, result)
+
+	cpu.registers.setFlags(
+		result == 0,
+		false,
+		((hl&0x0FFF)+(addend&0x0FFF)) > 0x0FFF,
+		uint32(hl)+uint32(addend) > 0xFFFF,
+	)
+}
+
+func addMR16(cpu *CPU, src CpuRegister) {
+	a := cpu.registers.read(R_A)
+	addend := uint16(cpu.bus.readByte(cpu.registers.read(src)))
+	result := a + addend
+
+	cpu.registers.write(R_A, uint16(result))
+
+	cpu.registers.setFlags(
+		result == 0,
+		false,
+		((a&0x0F)+(addend&0x0F)) > 0x0F,
+		result > 0xFF,
+	)
+}
+
+func addN8A(cpu *CPU) {
+	a := cpu.registers.read(R_A)
+	addend := uint16(readByteFromPC(cpu))
+	result := a + addend
+
+	cpu.registers.write(R_A, result)
+
+	cpu.registers.setFlags(
+		result == 0,
+		false,
+		((a&0x0F)+(addend&0x0F)) > 0x0F,
+		result > 0xFF,
+	)
+}
+
+func addN8SP(cpu *CPU) {
+	sp := cpu.registers.read(R_SP)
+	addend := uint16(readByteFromPC(cpu))
+	result := sp + addend
+
+	cpu.registers.write(R_HL, result)
+
+	cpu.registers.setFlags(
+		false,
+		false,
+		((sp&0x0FFF)+(addend&0x0FFF)) > 0x0FFF,
+		uint32(sp)+uint32(addend) > 0xFFFF,
+	)
+}
+
+func adcR8(cpu *CPU, src CpuRegister) {
+	adc(cpu, cpu.registers.read(src))
+}
+
+func adcMR16(cpu *CPU, src CpuRegister) {
+	adc(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+}
+
+func adcN8(cpu *CPU) {
+	adc(cpu, uint16(readByteFromPC(cpu)))
+}
+
+func adc(cpu *CPU, addend uint16) {
+	a := cpu.registers.read(R_A)
+	carry := BoolToUint16(cpu.registers.readFlag(FLAG_C))
+	result := a + addend + carry
+
+	cpu.registers.write(R_A, result)
+
+	cpu.registers.setFlags(
+		result == 0,
+		false,
+		a&0x0F+addend&0x0F+carry > 0x0F,
+		result > 0xFF,
+	)
+}
+
+func subR8(cpu *CPU, src CpuRegister) {
+	sub(cpu, cpu.registers.read(src))
+}
+
+func subMR16(cpu *CPU, src CpuRegister) {
+	sub(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+}
+
+func subN8(cpu *CPU) {
+	sub(cpu, uint16(readByteFromPC(cpu)))
+}
+
+func sub(cpu *CPU, subtrahend uint16) {
+	a := cpu.registers.read(R_A)
+	result := a - subtrahend
+
+	cpu.registers.write(R_A, result)
+
+	cpu.registers.setFlags(
+		result == 0,
+		true,
+		((a & 0x0F) < (subtrahend & 0x0F)),
+		a < subtrahend,
+	)
+}
+
+func sbcR8(cpu *CPU, src CpuRegister) {
+	sbc(cpu, cpu.registers.read(src))
+}
+
+func sbcMR16(cpu *CPU, src CpuRegister) {
+	sbc(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+}
+
+func sbcN8(cpu *CPU) {
+	sbc(cpu, uint16(readByteFromPC(cpu)))
+}
+
+func sbc(cpu *CPU, subtrahend uint16) {
+	a := cpu.registers.read(R_A)
+	carry := BoolToUint16(cpu.registers.readFlag(FLAG_C))
+	result := a - subtrahend - carry
+
+	cpu.registers.write(R_A, result)
+
+	cpu.registers.setFlags(
+		result == 0,
+		true,
+		((a^subtrahend^uint16((byte(result)&0xFF)))&(1<<4)) != 0,
+		subtrahend+carry < a,
+	)
+}
+
+func andR8(cpu *CPU, src CpuRegister) {
+	and(cpu, byte(cpu.registers.read(src)))
+}
+
+func andMR16(cpu *CPU, src CpuRegister) {
+	and(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+}
+
+func andN8(cpu *CPU) {
+	and(cpu, readByteFromPC(cpu))
+}
+
+func and(cpu *CPU, comparator byte) {
+	a := byte(cpu.registers.read(R_A))
+	result := comparator & a
+
+	cpu.registers.write(R_A, uint16(result))
+	cpu.registers.setFlags(result == 0, false, true, false)
+}
+
+func orR8(cpu *CPU, src CpuRegister) {
+	or(cpu, byte(cpu.registers.read(src)))
+}
+
+func orMR16(cpu *CPU, src CpuRegister) {
+	or(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+}
+
+func orN8(cpu *CPU) {
+	or(cpu, readByteFromPC(cpu))
+}
+
+func or(cpu *CPU, comparator byte) {
+	a := byte(cpu.registers.read(R_A))
+	result := comparator | a
+
+	cpu.registers.write(R_A, uint16(result))
+	cpu.registers.setFlags(result == 0, false, false, false)
 }

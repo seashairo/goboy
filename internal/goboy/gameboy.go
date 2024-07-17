@@ -34,6 +34,8 @@ func NewGameBoy() GameBoy {
 }
 
 func (gameboy *GameBoy) Run() {
+	debugInstructionCount()
+
 	gameboy.running = true
 
 	for gameboy.running {
@@ -50,4 +52,18 @@ func (gameboy *GameBoy) Run() {
 	}
 
 	fmt.Println("Terminating...")
+}
+
+func debugInstructionCount() {
+	instCount := 0
+	outStr := "Unimplemented opcodes: "
+	for k, v := range instructions {
+		if v == nil {
+			instCount++
+			outStr += fmt.Sprintf("0x%2.2X, ", k)
+		}
+	}
+
+	fmt.Printf("%d instructions not implemented out of %d\n", instCount, 0x100)
+	fmt.Println(outStr)
 }
