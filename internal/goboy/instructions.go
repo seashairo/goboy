@@ -2,6 +2,33 @@ package goboy
 
 import "fmt"
 
+type condition byte
+
+const (
+	C_ANY condition = iota
+	C_Z
+	C_NZ
+	C_C
+	C_NC
+)
+
+func checkCondition(cpu *CPU, cond condition) bool {
+	switch cond {
+	case C_ANY:
+		return true
+	case C_Z:
+		return cpu.registers.readFlag(FLAG_Z)
+	case C_NZ:
+		return !cpu.registers.readFlag(FLAG_Z)
+	case C_C:
+		return cpu.registers.readFlag(FLAG_C)
+	case C_NC:
+		return !cpu.registers.readFlag(FLAG_C)
+	}
+
+	panic("Encountered unknown condition")
+}
+
 type instruction func(cpu *CPU)
 
 func fetchInstruction(opcode byte) instruction {
@@ -34,6 +61,7 @@ var instructions = [0x100]instruction{
 	0x06: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_B)
 	},
+	0x07: rlca,
 	0x08: func(cpu *CPU) {
 		ldR16ToA16(cpu, R_SP)
 	},
@@ -55,6 +83,11 @@ var instructions = [0x100]instruction{
 	0x0E: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_C)
 	},
+	0x0F: rrca,
+	0x10: func(cpu *CPU) {
+		// do nothing?
+		// todo: what does STOP actually do?
+	},
 	0x11: func(cpu *CPU) {
 		ldN16ToR16(cpu, R_DE)
 	},
@@ -73,8 +106,9 @@ var instructions = [0x100]instruction{
 	0x16: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_D)
 	},
+	0x17: rla,
 	0x18: func(cpu *CPU) {
-		jr(cpu, true)
+		jr(cpu, C_ANY)
 	},
 	0x19: func(cpu *CPU) {
 		addR16(cpu, R_DE)
@@ -94,8 +128,9 @@ var instructions = [0x100]instruction{
 	0x1E: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_E)
 	},
+	0x1F: rra,
 	0x20: func(cpu *CPU) {
-		jr(cpu, !cpu.registers.readFlag(FLAG_Z))
+		jr(cpu, C_NZ)
 	},
 	0x21: func(cpu *CPU) {
 		ldN16ToR16(cpu, R_HL)
@@ -116,8 +151,9 @@ var instructions = [0x100]instruction{
 	0x26: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_H)
 	},
+	0x27: daa,
 	0x28: func(cpu *CPU) {
-		jr(cpu, cpu.registers.readFlag(FLAG_Z))
+		jr(cpu, C_Z)
 	},
 	0x29: func(cpu *CPU) {
 		addR16(cpu, R_HL)
@@ -138,8 +174,12 @@ var instructions = [0x100]instruction{
 	0x2E: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_L)
 	},
+	0x2F: cpl,
 	0x30: func(cpu *CPU) {
-		jr(cpu, !cpu.registers.readFlag(FLAG_C))
+		jr(cpu, C_NC)
+	},
+	0x31: func(cpu *CPU) {
+		ldN16ToR16(cpu, R_SP)
 	},
 	0x32: func(cpu *CPU) {
 		ldR8ToMR16(cpu, R_A, R_HL)
@@ -157,8 +197,9 @@ var instructions = [0x100]instruction{
 	0x36: func(cpu *CPU) {
 		ldN8ToMR16(cpu, R_HL)
 	},
+	0x37: scf,
 	0x38: func(cpu *CPU) {
-		jr(cpu, !cpu.registers.readFlag(FLAG_C))
+		jr(cpu, C_C)
 	},
 	0x39: func(cpu *CPU) {
 		addR16(cpu, R_SP)
@@ -179,13 +220,7 @@ var instructions = [0x100]instruction{
 	0x3E: func(cpu *CPU) {
 		ldN8ToR8(cpu, R_A)
 	},
-	0xC3: func(cpu *CPU) {
-		nextAddress := readWordFromPC(cpu)
-		cpu.registers.write(R_PC, nextAddress)
-	},
-	0x31: func(cpu *CPU) {
-		ldN16ToR16(cpu, R_SP)
-	},
+	0x3F: ccf,
 	0x40: func(cpu *CPU) {
 		ldR8ToR8(cpu, R_B, R_B)
 	},
@@ -570,62 +605,124 @@ var instructions = [0x100]instruction{
 	0xBF: func(cpu *CPU) {
 		cpR8(cpu, R_A)
 	},
-	0xC6: func(cpu *CPU) {
-		addN8A(cpu)
+	0xC0: func(cpu *CPU) {
+		ret(cpu, C_NZ)
 	},
-	0xCE: func(cpu *CPU) {
-		adcN8(cpu)
+	0xC1: func(cpu *CPU) {
+		pop(cpu, R_B, R_C)
 	},
-	0xD3: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xC2: func(cpu *CPU) {
+		jpA16(cpu, C_NZ)
 	},
-	0xD6: func(cpu *CPU) {
-		subN8(cpu)
+	0xC3: func(cpu *CPU) {
+		nextAddress := readWordFromPC(cpu)
+		cpu.registers.write(R_PC, nextAddress)
 	},
-	0xDB: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xC4: func(cpu *CPU) {
+		call(cpu, C_NZ)
 	},
-	0xDD: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xC5: func(cpu *CPU) {
+		push(cpu, R_BC)
 	},
-	0xDE: func(cpu *CPU) {
-		sbcN8(cpu)
+	0xC6: addN8A,
+	0xC7: func(cpu *CPU) {
+		rst(cpu, 0x00)
+	},
+	0xC8: func(cpu *CPU) {
+		ret(cpu, C_Z)
+	},
+	0xC9: func(cpu *CPU) {
+		ret(cpu, C_ANY)
+	},
+	0xCA: func(cpu *CPU) {
+		jpA16(cpu, C_Z)
+	},
+	0xCC: func(cpu *CPU) {
+		call(cpu, C_Z)
+	},
+	0xCD: func(cpu *CPU) {
+		call(cpu, C_ANY)
+	},
+	0xCE: adcN8,
+	0xCF: func(cpu *CPU) {
+		rst(cpu, 0x08)
+	},
+	0xD0: func(cpu *CPU) {
+		ret(cpu, C_NC)
+	},
+	0xD1: func(cpu *CPU) {
+		pop(cpu, R_D, R_E)
+	},
+	0xD2: func(cpu *CPU) {
+		jpA16(cpu, C_NC)
+	},
+	0xD3: invalidInstruction,
+	0xD4: func(cpu *CPU) {
+		call(cpu, C_NC)
+	},
+	0xD5: func(cpu *CPU) {
+		push(cpu, R_DE)
+	},
+	0xD6: subN8,
+	0xD7: func(cpu *CPU) {
+		rst(cpu, 0x10)
+	},
+	0xD8: func(cpu *CPU) {
+		ret(cpu, C_C)
+	},
+	0xD9: func(cpu *CPU) {
+		cpu.masterInterruptEnabled = true
+		ret(cpu, C_NZ)
+	},
+	0xDB: invalidInstruction,
+	0xDA: func(cpu *CPU) {
+		jpA16(cpu, C_C)
+	},
+	0xDC: func(cpu *CPU) {
+		call(cpu, C_NC)
+	},
+	0xDD: invalidInstruction,
+	0xDE: sbcN8,
+	0xDF: func(cpu *CPU) {
+		rst(cpu, 0x18)
 	},
 	0xE0: func(cpu *CPU) {
 		ldhR8ToA8(cpu, R_A)
 	},
+	0xE1: func(cpu *CPU) {
+		pop(cpu, R_H, R_L)
+	},
 	0xE2: func(cpu *CPU) {
 		ldR8ToMR8(cpu, R_A, R_C)
 	},
-	0xE3: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xE3: invalidInstruction,
+	0xE4: invalidInstruction,
+	0xE5: func(cpu *CPU) {
+		push(cpu, R_HL)
 	},
-	0xE4: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xE6: andN8,
+	0xE7: func(cpu *CPU) {
+		rst(cpu, 0x20)
 	},
-	0xE6: func(cpu *CPU) {
-		andN8(cpu)
-	},
-	0xE8: func(cpu *CPU) {
-		addN8SP(cpu)
+	0xE8: addN8SP,
+	0xE9: func(cpu *CPU) {
+		jpR16(cpu, R_HL)
 	},
 	0xEA: func(cpu *CPU) {
 		ldR8ToN16(cpu, R_A)
 	},
-	0xEB: func(cpu *CPU) {
-		invalidInstruction(cpu)
-	},
-	0xEC: func(cpu *CPU) {
-		invalidInstruction(cpu)
-	},
-	0xED: func(cpu *CPU) {
-		invalidInstruction(cpu)
-	},
-	0xEE: func(cpu *CPU) {
-		xorN8(cpu)
+	0xEB: invalidInstruction,
+	0xEC: invalidInstruction,
+	0xED: invalidInstruction,
+	0xEE: xorN8,
+	0xEF: func(cpu *CPU) {
+		rst(cpu, 0x28)
 	},
 	0xF0: func(cpu *CPU) {
 		ldhA8ToR8(cpu, R_A)
+	},
+	0xF1: func(cpu *CPU) {
+		pop(cpu, R_A, R_F)
 	},
 	0xF2: func(cpu *CPU) {
 		ldMR8ToR8(cpu, R_C, R_A)
@@ -633,11 +730,13 @@ var instructions = [0x100]instruction{
 	0xF3: func(cpu *CPU) {
 		cpu.masterInterruptEnabled = false
 	},
-	0xF4: func(cpu *CPU) {
-		invalidInstruction(cpu)
+	0xF4: invalidInstruction,
+	0xF5: func(cpu *CPU) {
+		push(cpu, R_AF)
 	},
-	0xF6: func(cpu *CPU) {
-		orN8(cpu)
+	0xF6: orN8,
+	0xF7: func(cpu *CPU) {
+		rst(cpu, 0x30)
 	},
 	0xF8: func(cpu *CPU) {
 		ldR16E8ToR16(cpu, R_SP, R_HL)
@@ -651,14 +750,11 @@ var instructions = [0x100]instruction{
 	0xFB: func(cpu *CPU) {
 		cpu.masterInterruptEnabled = true
 	},
-	0xFC: func(cpu *CPU) {
-		invalidInstruction(cpu)
-	},
-	0xFD: func(cpu *CPU) {
-		invalidInstruction(cpu)
-	},
-	0xFE: func(cpu *CPU) {
-		cpN8(cpu)
+	0xFC: invalidInstruction,
+	0xFD: invalidInstruction,
+	0xFE: cpN8,
+	0xFF: func(cpu *CPU) {
+		rst(cpu, 0x38)
 	},
 }
 
@@ -814,10 +910,10 @@ func decMR16(cpu *CPU, reg CpuRegister) {
 	cpu.registers.setFlag(FLAG_H, (value&0x0F) == 0x0F)
 }
 
-func jr(cpu *CPU, conditionMet bool) {
+func jr(cpu *CPU, cond condition) {
 	e8 := readByteFromPC(cpu)
 
-	if !conditionMet {
+	if !checkCondition(cpu, cond) {
 		return
 	}
 
@@ -1058,4 +1154,173 @@ func or(cpu *CPU, comparator byte) {
 
 	cpu.registers.write(R_A, uint16(result))
 	cpu.registers.setFlags(result == 0, false, false, false)
+}
+
+func rlca(cpu *CPU) {
+	a := byte(cpu.registers.read(R_A))
+	// get c as the most significant bit of a
+	c := (a >> 7) & 1
+	// rotate a 1 to the left, and put c in the rightmost position
+	a = (a << 1) | c
+
+	cpu.registers.write(R_A, uint16(a))
+	cpu.registers.setFlags(false, false, false, c == 1)
+}
+
+func rrca(cpu *CPU) {
+	a := byte(cpu.registers.read(R_A))
+
+	// get c as the least significant bit of a
+	c := (a & 1)
+	// rotate a 1 to the right, and put c in the leftmost position
+	a = (a >> 1) | c
+
+	cpu.registers.write(R_A, uint16(a))
+	cpu.registers.setFlags(false, false, false, c == 1)
+}
+
+func rla(cpu *CPU) {
+	a := byte(cpu.registers.read(R_A))
+	c := BoolToByte(cpu.registers.readFlag(FLAG_C))
+
+	msb := (a >> 7) & 1
+	a = (a << 1) | c
+
+	cpu.registers.write(R_A, uint16(a))
+	cpu.registers.setFlags(false, false, false, msb == 1)
+}
+
+func rra(cpu *CPU) {
+	a := byte(cpu.registers.read(R_A))
+	c := BoolToByte(cpu.registers.readFlag(FLAG_C))
+
+	lsb := a & 1
+	a = (a >> 1) | (c << 7)
+
+	cpu.registers.write(R_A, uint16(a))
+	cpu.registers.setFlags(false, false, false, lsb == 1)
+}
+
+// The DAA (Decimal Adjust Accumulator) instruction is used to adjust the
+// accumulator register after performing a binary-coded decimal (BCD) addition
+// or subtraction operation. BCD represents each decimal digit with its binary
+// equivalent. The DAA instruction adjusts the result of such operations to
+// ensure the accumulator contains a valid BCD number.
+// i.e. this is black magic I don't fully understand, but we'll see what blargg
+// has to say about it
+func daa(cpu *CPU) {
+	a := cpu.registers.read(R_A)
+	correction := uint16(0)
+
+	h := cpu.registers.readFlag(FLAG_H)
+	if h || (a&0x0F) > 0x09 {
+		correction += 0x06
+	}
+
+	c := cpu.registers.readFlag(FLAG_C)
+	if c || a > 0x99 {
+		correction += 0x60
+		c = true
+	} else {
+		c = false
+	}
+
+	n := cpu.registers.readFlag(FLAG_N)
+	if n {
+		a -= correction
+	} else {
+		a += correction
+	}
+
+	cpu.registers.write(R_A, a)
+	cpu.registers.setFlags(a == 0, n, false, c)
+}
+
+func cpl(cpu *CPU) {
+	a := cpu.registers.read(R_A)
+	r := uint16(byte(^a))
+	cpu.registers.write(R_A, r)
+	cpu.registers.setFlag(FLAG_N, true)
+	cpu.registers.setFlag(FLAG_H, true)
+}
+
+func scf(cpu *CPU) {
+	cpu.registers.setFlag(FLAG_N, false)
+	cpu.registers.setFlag(FLAG_H, false)
+	cpu.registers.setFlag(FLAG_C, true)
+}
+
+func ccf(cpu *CPU) {
+	cpu.registers.setFlag(FLAG_N, false)
+	cpu.registers.setFlag(FLAG_H, false)
+	cpu.registers.setFlag(FLAG_C, !cpu.registers.readFlag(FLAG_C))
+}
+
+func push(cpu *CPU, src CpuRegister) {
+	r := cpu.registers.read(src)
+	hi, lo := Uint16ToBytes(r)
+
+	decR16(cpu, R_SP)
+	cpu.bus.writeByte(cpu.registers.read(R_SP), hi)
+	decR16(cpu, R_SP)
+	cpu.bus.writeByte(cpu.registers.read(R_SP), lo)
+}
+
+func pop(cpu *CPU, hiDest CpuRegister, loDest CpuRegister) {
+	ldMR16ToR8(cpu, R_SP, loDest)
+	incR16(cpu, R_SP)
+
+	ldMR16ToR8(cpu, R_SP, hiDest)
+	incR16(cpu, R_SP)
+}
+
+func jpA16(cpu *CPU, cond condition) {
+	nextAddress := readWordFromPC(cpu)
+
+	if !checkCondition(cpu, cond) {
+		return
+	}
+
+	cpu.registers.write(R_PC, nextAddress)
+}
+
+func jpR16(cpu *CPU, src CpuRegister) {
+	ldR16ToR16(cpu, src, R_PC)
+}
+
+func call(cpu *CPU, cond condition) {
+	address := readWordFromPC(cpu)
+
+	if !checkCondition(cpu, cond) {
+		return
+	}
+
+	pc := cpu.registers.read(R_PC)
+	hi, lo := Uint16ToBytes(pc)
+
+	decR16(cpu, R_SP)
+	cpu.bus.writeByte(cpu.registers.read(R_SP), hi)
+	decR16(cpu, R_SP)
+	cpu.bus.writeByte(cpu.registers.read(R_SP), lo)
+
+	cpu.registers.write(R_PC, address)
+}
+
+func ret(cpu *CPU, cond condition) {
+	if !checkCondition(cpu, cond) {
+		return
+	}
+
+	lo := cpu.bus.readByte(cpu.registers.read(R_SP))
+	incR16(cpu, R_SP)
+
+	hi := cpu.bus.readByte(cpu.registers.read(R_SP))
+	incR16(cpu, R_SP)
+
+	cpu.registers.write(R_PC, BytesToUint16(hi, lo))
+}
+
+func rst(cpu *CPU, address uint16) {
+	push(cpu, R_PC)
+	cpu.registers.write(R_PC, address)
 }
