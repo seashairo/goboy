@@ -637,6 +637,7 @@ var instructions = [0x100]instruction{
 	0xCA: func(cpu *CPU) {
 		jpA16(cpu, C_Z)
 	},
+	0xCB: prefix,
 	0xCC: func(cpu *CPU) {
 		call(cpu, C_Z)
 	},
@@ -1323,4 +1324,149 @@ func ret(cpu *CPU, cond condition) {
 func rst(cpu *CPU, address uint16) {
 	push(cpu, R_PC)
 	cpu.registers.write(R_PC, address)
+}
+
+// Also known as CB instructions, these are well encoded so we don't need a map
+// for them, and they all operate on either R8 or MR16 ([hl])
+// @see https://gbdev.io/pandocs/CPU_Instruction_Set.html#cb-prefix-instructions
+func prefix(cpu *CPU) {
+	opcode := readByteFromPC(cpu)
+
+	register := decodeRegister(opcode & 0x07)
+	bit := (opcode >> 3) & 0b111
+	bitOperation := (opcode >> 6) & 0b11
+
+	switch bitOperation {
+	case 1:
+		cbBit(cpu, register, bit)
+	case 2:
+		cbRes(cpu, register, bit)
+	case 3:
+		cbSet(cpu, register, bit)
+	}
+
+	if bitOperation != 0 {
+		return
+	}
+
+	switch bit {
+	case 0:
+		rlc(cpu, register)
+	case 1:
+		rrc(cpu, register)
+	case 2:
+		rl(cpu, register)
+	case 3:
+		rr(cpu, register)
+	case 4:
+		sla(cpu, register)
+	case 5:
+		sra(cpu, register)
+	case 6:
+		swap(cpu, register)
+	case 7:
+		srl(cpu, register)
+	}
+
+	panic(fmt.Sprintf("Got invalid PREFIX operation 0x%2.2X", opcode))
+}
+
+func cbReadData(cpu *CPU, src CpuRegister) byte {
+	if src == R_HL {
+		return cpu.bus.readByte(cpu.registers.read(src))
+	}
+	return byte(cpu.registers.read(src))
+}
+
+func cbWriteData(cpu *CPU, dest CpuRegister, value byte) {
+	if dest == R_HL {
+		cpu.registers.write(dest, uint16(value))
+	} else {
+		cpu.bus.writeByte(cpu.registers.read(dest), value)
+	}
+}
+
+func cbBit(cpu *CPU, reg CpuRegister, bit byte) {
+	value := cbReadData(cpu, reg)
+	cpu.registers.setFlag(FLAG_Z, GetBit(value, bit))
+	cpu.registers.setFlag(FLAG_N, false)
+	cpu.registers.setFlag(FLAG_H, true)
+}
+
+func cbRes(cpu *CPU, reg CpuRegister, bit byte) {
+	value := cbReadData(cpu, reg)
+	result := SetBit(value, bit, false)
+	cbWriteData(cpu, reg, result)
+}
+
+func cbSet(cpu *CPU, reg CpuRegister, bit byte) {
+	value := cbReadData(cpu, reg)
+	result := SetBit(value, bit, true)
+	cbWriteData(cpu, reg, result)
+}
+
+func rlc(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	msb := (val >> 7) & 1
+	result := (val << 1) | msb
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, msb == 1)
+}
+
+func rrc(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	lsb := val & 1
+	result := (val >> 1) | (lsb << 7)
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, lsb == 1)
+}
+
+func rl(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	c := cpu.registers.readFlag(FLAG_C)
+	msb := (val >> 7) & 1
+	result := (val << 1) | BoolToByte(c)
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, msb == 1)
+}
+
+func rr(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	c := cpu.registers.readFlag(FLAG_C)
+	lsb := val & 1
+	result := (val >> 1) | (BoolToByte(c) << 7)
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, lsb == 1)
+}
+
+func sla(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	msb := (val >> 7) & 1
+	result := val << 1
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, msb == 1)
+}
+
+func sra(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	lsb := val & 1
+	msb := val & 0x80
+	result := (val >> 1) | msb
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, lsb == 1)
+}
+
+func swap(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	result := ((val & 0x0F) << 4) | ((val & 0xF0) >> 4)
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, false)
+}
+
+func srl(cpu *CPU, register CpuRegister) {
+	val := cbReadData(cpu, register)
+	lsb := val & 1
+	result := val >> 1
+	cbWriteData(cpu, register, result)
+	cpu.registers.setFlags(result == 0, false, false, lsb == 1)
 }

@@ -198,3 +198,13 @@ func (registers *CpuRegisters) debugPrint() {
 		registers.readFlag(FLAG_C),
 	)
 }
+
+func decodeRegister(b byte) CpuRegister {
+	if b > 0x07 {
+		return R_NONE
+	}
+
+	return [0x08]CpuRegister{
+		R_B, R_C, R_D, R_E, R_H, R_L, R_HL, R_A,
+	}[b]
+}
