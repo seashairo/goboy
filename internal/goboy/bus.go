@@ -1,7 +1,5 @@
 package goboy
 
-import "fmt"
-
 // @see https://gbdev.io/pandocs/Memory_Map.html
 const (
 	// 0x0000 - 0x3FFF : ROM Bank 00
@@ -57,17 +55,19 @@ const (
 
 type Bus struct {
 	cartridge               Cartridge
-	interruptEnableRegister byte
+	interruptEnableRegister InterruptRegister
 	wram                    RAM
 	hram                    RAM
+	io                      IO
 }
 
 func NewBus(cartridgePath string) Bus {
 	return Bus{
 		cartridge:               LoadCartridge(cartridgePath),
-		interruptEnableRegister: 0x00,
+		interruptEnableRegister: NewInterruptRegister(0),
 		wram:                    NewRAM(SWITCHABLE_WORK_RAM_END-WORK_RAM_START+1, WORK_RAM_START),
 		hram:                    NewRAM(HIGH_RAM_END-HIGH_RAM_START+1, HIGH_RAM_START),
+		io:                      NewIO(),
 	}
 }
 
@@ -75,24 +75,24 @@ func (bus *Bus) readByte(address uint16) byte {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		return bus.cartridge.readByte(address)
 	} else if address <= VIDEO_RAM_END {
-		fmt.Printf("Reading from %2.2X not supported (VIDEO_RAM)", address)
+		// fmt.Printf("Reading from %2.2X not supported (VIDEO_RAM)\n", address)
 	} else if address <= EXTERNAL_RAM_END {
-		bus.cartridge.readByte(address)
+		return bus.cartridge.readByte(address)
 	} else if address <= SWITCHABLE_WORK_RAM_END {
-		bus.wram.readByte(address)
+		return bus.wram.readByte(address)
 	} else if address <= ECHO_RAM_END {
-		fmt.Printf("Reading from %2.2X not supported (ECHO_RAM)", address)
+		// fmt.Printf("Reading from %2.2X not supported (ECHO_RAM)\n", address)
 	} else if address <= OBJECT_ATTRIBUTE_MEMORY_END {
-		fmt.Printf("Reading from %2.2X not supported (OBJECT_ATTRIBUTE_MEMORY)", address)
+		// fmt.Printf("Reading from %2.2X not supported (OBJECT_ATTRIBUTE_MEMORY)\n", address)
 	} else if address <= NOT_USABLE_END {
-		fmt.Printf("Reading from %2.2X not supported (NOT_USABLE)", address)
+		// fmt.Printf("Reading from %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {
-		fmt.Printf("Reading from %2.2X not supported (IO_REGISTERS)", address)
+		return bus.io.readByte(address)
 	} else if address <= HIGH_RAM_END {
-		bus.hram.readByte(address)
+		return bus.hram.readByte(address)
 	}
 
-	return bus.interruptEnableRegister
+	return bus.interruptEnableRegister.readByte()
 }
 
 func (bus *Bus) readWord(address uint16) uint16 {
@@ -106,24 +106,24 @@ func (bus *Bus) writeByte(address uint16, value byte) {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		bus.cartridge.writeByte(address, value)
 	} else if address <= VIDEO_RAM_END {
-		fmt.Printf("Writing to %2.2X not supported (VIDEO_RAM)", address)
+		// fmt.Printf("Writing to %2.2X not supported (VIDEO_RAM)\n", address)
 	} else if address <= EXTERNAL_RAM_END {
 		bus.cartridge.writeByte(address, value)
 	} else if address <= SWITCHABLE_WORK_RAM_END {
 		bus.wram.writeByte(address, value)
 	} else if address <= ECHO_RAM_END {
-		fmt.Printf("Writing to %2.2X not supported (ECHO_RAM)", address)
+		// fmt.Printf("Writing to %2.2X not supported (ECHO_RAM)\n", address)
 	} else if address <= OBJECT_ATTRIBUTE_MEMORY_END {
-		fmt.Printf("Writing to %2.2X not supported (OBJECT_ATTRIBUTE_MEMORY)", address)
+		// fmt.Printf("Writing to %2.2X not supported (OBJECT_ATTRIBUTE_MEMORY)\n", address)
 	} else if address <= NOT_USABLE_END {
-		fmt.Printf("Writing to %2.2X not supported (NOT_USABLE)", address)
+		// fmt.Printf("Writing to %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {
-		fmt.Printf("Writing to %2.2X not supported (IO_REGISTERS)", address)
+		bus.io.writeByte(address, value)
 	} else if address <= HIGH_RAM_END {
 		bus.hram.writeByte(address, value)
 	}
 
-	bus.interruptEnableRegister = value
+	bus.interruptEnableRegister.writeByte(value)
 }
 
 func (bus *Bus) writeWord(address uint16, value uint16) {

@@ -41,6 +41,9 @@ func fetchInstruction(opcode byte) instruction {
 	panic(fmt.Sprintf("No instruction found for opcode 0x%2.2X", opcode))
 }
 
+// todo: don't cry looking at this
+// opcodes can maybe be decoded, or data read/written in the same way as PREFIX
+// codes to trim the amount of stuff going on in this map
 var instructions = [0x100]instruction{
 	0x00: func(_ *CPU) {},
 	0x01: func(cpu *CPU) {
@@ -384,7 +387,7 @@ var instructions = [0x100]instruction{
 		ldR8ToMR16(cpu, R_L, R_HL)
 	},
 	0x76: func(cpu *CPU) {
-		// todo: HALT
+		cpu.halted = true
 	},
 	0x77: func(cpu *CPU) {
 		ldR8ToMR16(cpu, R_A, R_HL)
@@ -672,7 +675,7 @@ var instructions = [0x100]instruction{
 		ret(cpu, C_C)
 	},
 	0xD9: func(cpu *CPU) {
-		cpu.masterInterruptEnabled = true
+		cpu.interruptMasterEnabled = true
 		ret(cpu, C_NZ)
 	},
 	0xDB: invalidInstruction,
@@ -729,7 +732,7 @@ var instructions = [0x100]instruction{
 		ldMR8ToR8(cpu, R_C, R_A)
 	},
 	0xF3: func(cpu *CPU) {
-		cpu.masterInterruptEnabled = false
+		cpu.interruptMasterEnabled = false
 	},
 	0xF4: invalidInstruction,
 	0xF5: func(cpu *CPU) {
@@ -749,7 +752,7 @@ var instructions = [0x100]instruction{
 		ldA16ToR8(cpu, R_A)
 	},
 	0xFB: func(cpu *CPU) {
-		cpu.masterInterruptEnabled = true
+		cpu.interruptMasterEnabled = true
 	},
 	0xFC: invalidInstruction,
 	0xFD: invalidInstruction,
@@ -866,12 +869,12 @@ func xor(cpu *CPU, comparator byte) {
 }
 
 func incR8(cpu *CPU, reg CpuRegister) {
-	value := cpu.registers.read(reg) + 1
-	cpu.registers.write(reg, value)
+	result := byte(cpu.registers.read(reg)) + 1
+	cpu.registers.write(reg, uint16(result))
 
-	cpu.registers.setFlag(FLAG_Z, value == 0)
+	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, false)
-	cpu.registers.setFlag(FLAG_H, (value&0x0F) == 0x0F)
+	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0)
 }
 
 func incR16(cpu *CPU, reg CpuRegister) {
@@ -880,21 +883,21 @@ func incR16(cpu *CPU, reg CpuRegister) {
 
 func incMR16(cpu *CPU, reg CpuRegister) {
 	address := cpu.registers.read(reg)
-	value := cpu.bus.readByte(address) + 1
-	cpu.bus.writeByte(address, value)
+	result := cpu.bus.readByte(address) + 1
+	cpu.bus.writeByte(address, result)
 
-	cpu.registers.setFlag(FLAG_Z, value == 0)
+	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, false)
-	cpu.registers.setFlag(FLAG_H, (value&0x0F) == 0x0F)
+	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0)
 }
 
 func decR8(cpu *CPU, reg CpuRegister) {
-	value := cpu.registers.read(reg) - 1
-	cpu.registers.write(reg, value)
+	result := byte(cpu.registers.read(reg)) - 1
+	cpu.registers.write(reg, uint16(result))
 
-	cpu.registers.setFlag(FLAG_Z, value == 0)
+	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, true)
-	cpu.registers.setFlag(FLAG_H, (value&0x0F) == 0x0F)
+	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0x0F)
 }
 
 func decR16(cpu *CPU, reg CpuRegister) {
@@ -903,12 +906,12 @@ func decR16(cpu *CPU, reg CpuRegister) {
 
 func decMR16(cpu *CPU, reg CpuRegister) {
 	address := cpu.registers.read(reg)
-	value := cpu.bus.readByte(address) - 1
-	cpu.bus.writeByte(address, value)
+	result := cpu.bus.readByte(address) - 1
+	cpu.bus.writeByte(address, result)
 
-	cpu.registers.setFlag(FLAG_Z, value == 0)
-	cpu.registers.setFlag(FLAG_N, false)
-	cpu.registers.setFlag(FLAG_H, (value&0x0F) == 0x0F)
+	cpu.registers.setFlag(FLAG_Z, result == 0)
+	cpu.registers.setFlag(FLAG_N, true)
+	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0x0F)
 }
 
 func jr(cpu *CPU, cond condition) {
@@ -957,7 +960,7 @@ func cp(cpu *CPU, minuend byte, subtrahend byte) {
 	cpu.registers.setFlags(
 		minuend == subtrahend,
 		true,
-		minuend&0x0F < subtrahend*0x0F,
+		minuend&0x0F < subtrahend&0x0F,
 		minuend < subtrahend,
 	)
 }
@@ -970,7 +973,7 @@ func addR8(cpu *CPU, src CpuRegister) {
 	cpu.registers.write(R_A, uint16(result))
 
 	cpu.registers.setFlags(
-		result == 0,
+		byte(result) == 0,
 		false,
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
@@ -984,12 +987,9 @@ func addR16(cpu *CPU, src CpuRegister) {
 
 	cpu.registers.write(R_HL, result)
 
-	cpu.registers.setFlags(
-		result == 0,
-		false,
-		((hl&0x0FFF)+(addend&0x0FFF)) > 0x0FFF,
-		uint32(hl)+uint32(addend) > 0xFFFF,
-	)
+	cpu.registers.setFlag(FLAG_N, false)
+	cpu.registers.setFlag(FLAG_H, ((hl&0x0FFF)+(addend&0x0FFF)) > 0x0FFF)
+	cpu.registers.setFlag(FLAG_C, uint32(hl)+uint32(addend) > 0xFFFF)
 }
 
 func addMR16(cpu *CPU, src CpuRegister) {
@@ -1000,7 +1000,7 @@ func addMR16(cpu *CPU, src CpuRegister) {
 	cpu.registers.write(R_A, uint16(result))
 
 	cpu.registers.setFlags(
-		result == 0,
+		byte(result) == 0,
 		false,
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
@@ -1015,7 +1015,7 @@ func addN8A(cpu *CPU) {
 	cpu.registers.write(R_A, result)
 
 	cpu.registers.setFlags(
-		result == 0,
+		byte(result) == 0,
 		false,
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
@@ -1057,7 +1057,7 @@ func adc(cpu *CPU, addend uint16) {
 	cpu.registers.write(R_A, result)
 
 	cpu.registers.setFlags(
-		result == 0,
+		byte(result) == 0,
 		false,
 		a&0x0F+addend&0x0F+carry > 0x0F,
 		result > 0xFF,
@@ -1210,30 +1210,31 @@ func rra(cpu *CPU) {
 // i.e. this is black magic I don't fully understand, but we'll see what blargg
 // has to say about it
 func daa(cpu *CPU) {
-	a := cpu.registers.read(R_A)
-	correction := uint16(0)
+	a := byte(cpu.registers.read(R_A))
+	correction := byte(0)
 
 	h := cpu.registers.readFlag(FLAG_H)
-	if h || (a&0x0F) > 0x09 {
-		correction += 0x06
-	}
-
 	c := cpu.registers.readFlag(FLAG_C)
-	if c || a > 0x99 {
-		correction += 0x60
-		c = true
-	} else {
-		c = false
+	n := cpu.registers.readFlag(FLAG_N)
+
+	if h || (!n && (a&0x0F) > 0x09) {
+		correction |= 0x06
+	}
+	if c || (!n && a > 0x99) {
+		correction |= 0x60
 	}
 
-	n := cpu.registers.readFlag(FLAG_N)
 	if n {
 		a -= correction
 	} else {
 		a += correction
 	}
 
-	cpu.registers.write(R_A, a)
+	if correction&0x60 != 0 {
+		c = true
+	}
+
+	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(a == 0, n, false, c)
 }
 
@@ -1366,9 +1367,9 @@ func prefix(cpu *CPU) {
 		swap(cpu, register)
 	case 7:
 		srl(cpu, register)
+	default:
+		panic(fmt.Sprintf("Got invalid PREFIX operation 0x%2.2X", opcode))
 	}
-
-	panic(fmt.Sprintf("Got invalid PREFIX operation 0x%2.2X", opcode))
 }
 
 func cbReadData(cpu *CPU, src CpuRegister) byte {
@@ -1380,9 +1381,9 @@ func cbReadData(cpu *CPU, src CpuRegister) byte {
 
 func cbWriteData(cpu *CPU, dest CpuRegister, value byte) {
 	if dest == R_HL {
-		cpu.registers.write(dest, uint16(value))
-	} else {
 		cpu.bus.writeByte(cpu.registers.read(dest), value)
+	} else {
+		cpu.registers.write(dest, uint16(value))
 	}
 }
 

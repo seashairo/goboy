@@ -1,7 +1,5 @@
 package goboy
 
-import "fmt"
-
 // @see https://gbdev.io/pandocs/CPU_Registers_and_Flags.html
 
 type CpuRegister byte
@@ -130,7 +128,7 @@ func (registers *CpuRegisters) write(register CpuRegister, value uint16) {
 	case R_A:
 		registers.a = byte(value)
 	case R_F:
-		registers.f = byte(value)
+		registers.f = byte(value) & 0xF0
 	case R_B:
 		registers.b = byte(value)
 	case R_C:
@@ -144,7 +142,9 @@ func (registers *CpuRegisters) write(register CpuRegister, value uint16) {
 	case R_L:
 		registers.l = byte(value)
 	case R_AF:
-		registers.a, registers.f = Uint16ToBytes(value)
+		hi, lo := Uint16ToBytes(value)
+		registers.a = hi
+		registers.f = lo & 0xF0
 	case R_BC:
 		registers.b, registers.c = Uint16ToBytes(value)
 	case R_DE:
@@ -173,30 +173,6 @@ func (registers *CpuRegisters) setFlags(z bool, n bool, h bool, c bool) {
 	registers.setFlag(FLAG_N, n)
 	registers.setFlag(FLAG_H, h)
 	registers.setFlag(FLAG_C, c)
-}
-
-func (registers *CpuRegisters) debugPrint() {
-	fmt.Printf(
-		"Registers - A: 0x%2.2X, F: 0x%2.2X, B: 0x%2.2X, C: 0x%2.2X, D: 0x%2.2X, E: 0x%2.2X, H: 0x%2.2X, L: 0x%2.2X, SP: 0x%2.2X, PC: 0x%2.2X\n",
-		registers.a,
-		registers.f,
-		registers.b,
-		registers.c,
-		registers.d,
-		registers.e,
-		registers.h,
-		registers.l,
-		registers.sp,
-		registers.pc,
-	)
-
-	fmt.Printf(
-		"Flags - Z: %t, N: %t, H: %t, C: %t\n",
-		registers.readFlag(FLAG_Z),
-		registers.readFlag(FLAG_N),
-		registers.readFlag(FLAG_H),
-		registers.readFlag(FLAG_C),
-	)
 }
 
 func decodeRegister(b byte) CpuRegister {
