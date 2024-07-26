@@ -676,14 +676,14 @@ var instructions = [0x100]instruction{
 	},
 	0xD9: func(cpu *CPU) {
 		cpu.interruptMasterEnabled = true
-		ret(cpu, C_NZ)
+		ret(cpu, C_ANY)
 	},
 	0xDB: invalidInstruction,
 	0xDA: func(cpu *CPU) {
 		jpA16(cpu, C_C)
 	},
 	0xDC: func(cpu *CPU) {
-		call(cpu, C_NC)
+		call(cpu, C_C)
 	},
 	0xDD: invalidInstruction,
 	0xDE: sbcN8,

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/11-op a,(hl).gb"
+const ROM_PATH = "./data/roms/blargg/07-jr,jp,call,ret,rst.gb"
 
 type GameBoy struct {
 	running bool
@@ -80,7 +80,7 @@ func (gameboy *GameBoy) Run() {
 
 		gameboy.ticks += 1
 
-		if gameboy.ticks > 4000000 {
+		if gameboy.ticks > 1000000 {
 			break
 		}
 	}
