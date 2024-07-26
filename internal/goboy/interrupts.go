@@ -3,7 +3,7 @@ package goboy
 type InterruptKind byte
 
 const (
-	INT_VBLANK = 1 << iota
+	INT_VBLANK = iota
 	INT_LCD
 	INT_TIMER
 	INT_SERIAL
@@ -35,29 +35,38 @@ func (ie *InterruptRegister) writeByte(value byte) {
 }
 
 func (cpu *CPU) handleInterrupts() {
-	interruptKinds := [5]InterruptKind{
-		INT_VBLANK,
-		INT_LCD,
-		INT_TIMER,
-		INT_SERIAL,
-		INT_JOYPAD,
+	if cpu.handleInterrupt(INT_VBLANK, 0x40) {
+		return
 	}
 
-	for _, kind := range interruptKinds {
-		if cpu.handleInterrupt(kind) {
-			return
-		}
+	if cpu.handleInterrupt(INT_LCD, 0x48) {
+		return
+	}
+
+	if cpu.handleInterrupt(INT_TIMER, 0x50) {
+		return
+	}
+
+	if cpu.handleInterrupt(INT_SERIAL, 0x58) {
+		return
+	}
+
+	if cpu.handleInterrupt(INT_JOYPAD, 0x60) {
+		return
 	}
 }
 
 func (cpu *CPU) checkInterrupt(kind InterruptKind) bool {
 	interruptFlags := cpu.bus.io.interrupts.readByte()
-	interruptEnabled := cpu.bus.interruptEnableRegister.readByte()
+	ieRegister := cpu.bus.interruptEnableRegister.readByte()
 
-	return (interruptFlags&byte(kind))&(interruptEnabled&byte(kind)) == 1
+	interruptFlagged := interruptFlags&(1<<kind) != 0
+	interruptEnabled := ieRegister&(1<<kind) != 0
+
+	return interruptFlagged && interruptEnabled
 }
 
-func (cpu *CPU) handleInterrupt(kind InterruptKind) bool {
+func (cpu *CPU) handleInterrupt(kind InterruptKind, address uint16) bool {
 	if !cpu.checkInterrupt(kind) {
 		return false
 	}
@@ -65,6 +74,7 @@ func (cpu *CPU) handleInterrupt(kind InterruptKind) bool {
 	push(cpu, R_PC)
 	cpu.bus.io.interrupts.SetInterrupt(kind, false)
 	cpu.interruptMasterEnabled = false
+	cpu.registers.write(R_PC, address)
 
 	return true
 }

@@ -746,7 +746,7 @@ var instructions = [0x100]instruction{
 		ldR16E8ToR16(cpu, R_SP, R_HL)
 	},
 	0xF9: func(cpu *CPU) {
-		ldR16ToR16(cpu, R_SP, R_HL)
+		ldR16ToR16(cpu, R_HL, R_SP)
 	},
 	0xFA: func(cpu *CPU) {
 		ldA16ToR8(cpu, R_A)
@@ -787,10 +787,19 @@ func ldR16ToR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
 }
 
 func ldR16E8ToR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
-	e8 := readByteFromPC(cpu)
-	offset := uint16(int8(e8))
+	reg := cpu.registers.read(src)
+	addend := int8(readByteFromPC(cpu))
 
-	cpu.registers.write(dest, cpu.registers.read(src)+offset)
+	result := int32(reg) + int32(addend)
+
+	cpu.registers.write(dest, uint16(result))
+
+	cpu.registers.setFlags(
+		false,
+		false,
+		((reg&0x0F)+(uint16(addend)&0x0F)) > 0x0F,
+		((reg&0xFF)+(uint16(addend)&0xFF)) > 0xFF,
+	)
 }
 
 func ldR8ToMR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
@@ -1024,16 +1033,16 @@ func addN8A(cpu *CPU) {
 
 func addN8SP(cpu *CPU) {
 	sp := cpu.registers.read(R_SP)
-	addend := uint16(readByteFromPC(cpu))
-	result := sp + addend
+	addend := int8(readByteFromPC(cpu))
+	result := int32(sp) + int32(addend)
 
-	cpu.registers.write(R_HL, result)
+	cpu.registers.write(R_SP, uint16(result))
 
 	cpu.registers.setFlags(
 		false,
 		false,
-		((sp&0x0FFF)+(addend&0x0FFF)) > 0x0FFF,
-		uint32(sp)+uint32(addend) > 0xFFFF,
+		((sp&0x0F)+(uint16(addend)&0x0F)) > 0x0F,
+		((sp&0xFF)+(uint16(addend)&0xFF)) > 0xFF,
 	)
 }
 

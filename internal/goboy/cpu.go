@@ -2,7 +2,6 @@ package goboy
 
 import (
 	"fmt"
-	"os"
 )
 
 type CPU struct {
@@ -30,13 +29,8 @@ func (cpu *CPU) Tick() {
 			cpu.halted = false
 		}
 	} else {
-		// fmt.Println("")
 		cpu.debugPrint()
-
 		currentOpcode := cpu.fetchNextOpcode()
-
-		// fmt.Printf("Opcode: 0x%2.2X\n", currentOpcode)
-
 		instruction := fetchInstruction(currentOpcode)
 		instruction(cpu)
 	}
@@ -80,23 +74,5 @@ func (cpu *CPU) debugPrint() {
 		cpu.bus.readByte(r.pc+3),
 	)
 	// fmt.Print(out)
-
-	// fmt.Printf(
-	// 	"Flags - Z: %t, N: %t, H: %t, C: %t\n",
-	// 	r.readFlag(FLAG_Z),
-	// 	r.readFlag(FLAG_N),
-	// 	r.readFlag(FLAG_H),
-	// 	r.readFlag(FLAG_C),
-	// )
-
-	f, err := os.OpenFile("doctor.out", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
-
-	defer f.Close()
-
-	if _, err = f.WriteString(string(out)); err != nil {
-		panic(err)
-	}
+	GetInstance().WriteString(out)
 }

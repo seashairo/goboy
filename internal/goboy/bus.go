@@ -90,9 +90,11 @@ func (bus *Bus) readByte(address uint16) byte {
 		return bus.io.readByte(address)
 	} else if address <= HIGH_RAM_END {
 		return bus.hram.readByte(address)
+	} else {
+		return bus.interruptEnableRegister.readByte()
 	}
 
-	return bus.interruptEnableRegister.readByte()
+	panic("Somehow didn't manage to read a byte")
 }
 
 func (bus *Bus) readWord(address uint16) uint16 {
@@ -121,9 +123,9 @@ func (bus *Bus) writeByte(address uint16, value byte) {
 		bus.io.writeByte(address, value)
 	} else if address <= HIGH_RAM_END {
 		bus.hram.writeByte(address, value)
+	} else {
+		bus.interruptEnableRegister.writeByte(value)
 	}
-
-	bus.interruptEnableRegister.writeByte(value)
 }
 
 func (bus *Bus) writeWord(address uint16, value uint16) {
