@@ -1100,29 +1100,29 @@ func sub(cpu *CPU, subtrahend uint16) {
 }
 
 func sbcR8(cpu *CPU, src CpuRegister) {
-	sbc(cpu, cpu.registers.read(src))
+	sbc(cpu, byte(cpu.registers.read(src)))
 }
 
 func sbcMR16(cpu *CPU, src CpuRegister) {
-	sbc(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+	sbc(cpu, cpu.bus.readByte(cpu.registers.read(src)))
 }
 
 func sbcN8(cpu *CPU) {
-	sbc(cpu, uint16(readByteFromPC(cpu)))
+	sbc(cpu, readByteFromPC(cpu))
 }
 
-func sbc(cpu *CPU, subtrahend uint16) {
+func sbc(cpu *CPU, subtrahend byte) {
 	a := cpu.registers.read(R_A)
-	carry := BoolToUint16(cpu.registers.readFlag(FLAG_C))
-	result := a - subtrahend - carry
+	carry := BoolToByte(cpu.registers.readFlag(FLAG_C))
+	result := byte(a) - subtrahend - carry
 
-	cpu.registers.write(R_A, result)
+	cpu.registers.write(R_A, uint16(result))
 
 	cpu.registers.setFlags(
 		result == 0,
 		true,
-		((a^subtrahend^uint16((byte(result)&0xFF)))&(1<<4)) != 0,
-		subtrahend+carry < a,
+		((a^uint16(subtrahend)^uint16((byte(result)&0xFF)))&(1<<4)) != 0,
+		(int(a)-int(carry)-int(subtrahend) < 0),
 	)
 }
 
