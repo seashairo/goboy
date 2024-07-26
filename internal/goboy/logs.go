@@ -14,7 +14,7 @@ var once sync.Once
 
 func GetInstance() *FileSingleton {
 	once.Do(func() {
-		file, err := os.OpenFile("doctor.out", os.O_WRONLY|os.O_CREATE, 0600)
+		file, err := os.OpenFile("doctor.out", os.O_CREATE|os.O_TRUNC, 0600)
 
 		if err != nil {
 			panic(err)

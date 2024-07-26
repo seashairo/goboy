@@ -1168,25 +1168,22 @@ func or(cpu *CPU, comparator byte) {
 
 func rlca(cpu *CPU) {
 	a := byte(cpu.registers.read(R_A))
-	// get c as the most significant bit of a
-	c := (a >> 7) & 1
-	// rotate a 1 to the left, and put c in the rightmost position
-	a = (a << 1) | c
+
+	c := (a & (1 << 7)) != 0
+	a = (a << 1) | (a >> 7)
 
 	cpu.registers.write(R_A, uint16(a))
-	cpu.registers.setFlags(false, false, false, c == 1)
+	cpu.registers.setFlags(false, false, false, c)
 }
 
 func rrca(cpu *CPU) {
 	a := byte(cpu.registers.read(R_A))
 
-	// get c as the least significant bit of a
-	c := (a & 1)
-	// rotate a 1 to the right, and put c in the leftmost position
-	a = (a >> 1) | c
+	c := (a & 1) != 0
+	a = (a >> 1) | (a << 7)
 
 	cpu.registers.write(R_A, uint16(a))
-	cpu.registers.setFlags(false, false, false, c == 1)
+	cpu.registers.setFlags(false, false, false, c)
 }
 
 func rla(cpu *CPU) {
