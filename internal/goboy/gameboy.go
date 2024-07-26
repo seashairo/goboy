@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/07-jr,jp,call,ret,rst.gb"
+const ROM_PATH = "./data/roms/blargg/08-misc instrs.gb"
 
 type GameBoy struct {
 	running bool

@@ -825,8 +825,8 @@ func ldMR16ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
 }
 
 func ldMR8ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
-	address := cpu.registers.read(src)
-	value := 0xFF00 + uint16(cpu.bus.readByte(address))
+	address := 0xFF00 + cpu.registers.read(src)
+	value := uint16(cpu.bus.readByte(address))
 	cpu.registers.write(dest, value)
 }
 
