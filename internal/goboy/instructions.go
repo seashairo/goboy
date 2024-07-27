@@ -960,8 +960,8 @@ func cpR8(cpu *CPU, src CpuRegister) {
 }
 
 func cpMR8(cpu *CPU, src CpuRegister) {
-	minuend := cpu.bus.readByte(cpu.registers.read(R_A))
-	subtrahend := byte(cpu.registers.read(src))
+	minuend := byte(cpu.registers.read(R_A))
+	subtrahend := cpu.bus.readByte(cpu.registers.read(src))
 	cp(cpu, minuend, subtrahend)
 }
 

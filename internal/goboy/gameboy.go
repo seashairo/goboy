@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/10-bit ops.gb"
+const ROM_PATH = "./data/roms/blargg/11-op a,(hl).gb"
 
 type GameBoy struct {
 	running bool
@@ -50,7 +50,7 @@ func (gameboy *GameBoy) Run() {
 		}
 
 		// if gameboy.cpu.registers.read(R_PC) == 0xC659 {
-		if gameboy.ticks == 178690 {
+		if gameboy.ticks == 1467612 {
 			fmt.Println("\nEntering step mode")
 			// stepping = true
 		}
