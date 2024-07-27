@@ -1395,7 +1395,7 @@ func cbWriteData(cpu *CPU, dest CpuRegister, value byte) {
 
 func cbBit(cpu *CPU, reg CpuRegister, bit byte) {
 	value := cbReadData(cpu, reg)
-	cpu.registers.setFlag(FLAG_Z, GetBit(value, bit))
+	cpu.registers.setFlag(FLAG_Z, !GetBit(value, bit))
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, true)
 }
