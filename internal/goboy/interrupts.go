@@ -18,12 +18,8 @@ func NewInterruptRegister(data byte) InterruptRegister {
 	return InterruptRegister{data: data}
 }
 
-func (ie *InterruptRegister) CheckInterrupt(kind InterruptKind) bool {
-	return (ie.data & byte(kind)) == 1
-}
-
 func (ie *InterruptRegister) SetInterrupt(kind InterruptKind, on bool) {
-	ie.data = ie.data | byte(kind)
+	ie.data = SetBit(ie.data, byte(kind), on)
 }
 
 func (ie *InterruptRegister) readByte() byte {

@@ -49,8 +49,7 @@ func (gameboy *GameBoy) Run() {
 			continue
 		}
 
-		// if gameboy.cpu.registers.read(R_PC) == 0xC659 {
-		if gameboy.ticks == 1467612 {
+		if gameboy.ticks == 151344 {
 			fmt.Println("\nEntering step mode")
 			// stepping = true
 		}
@@ -80,7 +79,7 @@ func (gameboy *GameBoy) Run() {
 
 		gameboy.ticks += 1
 
-		if gameboy.ticks > 8000000 {
+		if gameboy.ticks > 500000 {
 			break
 		}
 	}
