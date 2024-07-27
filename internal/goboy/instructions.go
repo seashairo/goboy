@@ -780,10 +780,12 @@ func invalidInstruction(cpu *CPU) {
 
 func ldR8ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	cpu.registers.write(dest, cpu.registers.read(src))
+	cpu.Cycle(1)
 }
 
 func ldR16ToR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	cpu.registers.write(dest, cpu.registers.read(src))
+	cpu.Cycle(2)
 }
 
 func ldR16E8ToR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
@@ -800,10 +802,12 @@ func ldR16E8ToR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
 		((reg&0x0F)+(uint16(addend)&0x0F)) > 0x0F,
 		((reg&0xFF)+(uint16(addend)&0xFF)) > 0xFF,
 	)
+	cpu.Cycle(3)
 }
 
 func ldR8ToMR16(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	cpu.bus.writeByte(cpu.registers.read(dest), byte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func ldR16ToA16(cpu *CPU, src CpuRegister) {
@@ -812,61 +816,74 @@ func ldR16ToA16(cpu *CPU, src CpuRegister) {
 
 	cpu.bus.writeByte(address, byte(value&0xFF))
 	cpu.bus.writeByte(address+1, byte(value>>8))
+
+	cpu.Cycle(5)
 }
 
 func ldR8ToMR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	cpu.bus.writeByte(0xFF00+cpu.registers.read(dest), byte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func ldMR16ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	address := cpu.registers.read(src)
 	value := cpu.bus.readByte(address)
 	cpu.registers.write(dest, uint16(value))
+	cpu.Cycle(2)
 }
 
 func ldMR8ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {
 	address := 0xFF00 + cpu.registers.read(src)
 	value := uint16(cpu.bus.readByte(address))
 	cpu.registers.write(dest, value)
+	cpu.Cycle(2)
 }
 
 func ldN16ToR16(cpu *CPU, dest CpuRegister) {
 	n16 := readWordFromPC(cpu)
 	cpu.registers.write(dest, n16)
+	cpu.Cycle(3)
 }
 
 func ldN8ToR8(cpu *CPU, dest CpuRegister) {
 	n8 := readByteFromPC(cpu)
 	cpu.registers.write(dest, uint16(n8))
+	cpu.Cycle(2)
 }
 
 func ldN8ToMR16(cpu *CPU, dest CpuRegister) {
 	n8 := readByteFromPC(cpu)
 	address := cpu.registers.read(dest)
 	cpu.bus.writeByte(address, n8)
+	cpu.Cycle(3)
 }
 
 func ldR8ToN16(cpu *CPU, src CpuRegister) {
 	dest := readWordFromPC(cpu)
 	cpu.bus.writeByte(dest, byte(cpu.registers.read(src)))
+	cpu.Cycle(4)
 }
 
 func ldA16ToR8(cpu *CPU, dest CpuRegister) {
 	a16 := readWordFromPC(cpu)
 	value := cpu.bus.readByte(a16)
 	cpu.registers.write(dest, uint16(value))
+	cpu.Cycle(4)
 }
 
 func xorR8(cpu *CPU, src CpuRegister) {
 	xor(cpu, byte(cpu.registers.read(src)))
+	cpu.Cycle(1)
 }
 
 func xorMR16(cpu *CPU, src CpuRegister) {
 	xor(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func xorN8(cpu *CPU) {
 	xor(cpu, readByteFromPC(cpu))
+	cpu.Cycle(2)
 }
 
 func xor(cpu *CPU, comparator byte) {
@@ -884,10 +901,13 @@ func incR8(cpu *CPU, reg CpuRegister) {
 	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0)
+
+	cpu.Cycle(1)
 }
 
 func incR16(cpu *CPU, reg CpuRegister) {
 	cpu.registers.write(reg, cpu.registers.read(reg)+1)
+	cpu.Cycle(2)
 }
 
 func incMR16(cpu *CPU, reg CpuRegister) {
@@ -898,6 +918,7 @@ func incMR16(cpu *CPU, reg CpuRegister) {
 	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0)
+	cpu.Cycle(3)
 }
 
 func decR8(cpu *CPU, reg CpuRegister) {
@@ -907,10 +928,14 @@ func decR8(cpu *CPU, reg CpuRegister) {
 	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, true)
 	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0x0F)
+
+	cpu.Cycle(1)
 }
 
 func decR16(cpu *CPU, reg CpuRegister) {
 	cpu.registers.write(reg, cpu.registers.read(reg)-1)
+
+	cpu.Cycle(2)
 }
 
 func decMR16(cpu *CPU, reg CpuRegister) {
@@ -921,48 +946,58 @@ func decMR16(cpu *CPU, reg CpuRegister) {
 	cpu.registers.setFlag(FLAG_Z, result == 0)
 	cpu.registers.setFlag(FLAG_N, true)
 	cpu.registers.setFlag(FLAG_H, (result&0x0F) == 0x0F)
+
+	cpu.Cycle(3)
 }
 
 func jr(cpu *CPU, cond condition) {
 	e8 := readByteFromPC(cpu)
 
 	if !checkCondition(cpu, cond) {
+		cpu.Cycle(2)
 		return
 	}
 
 	offset := uint16(int8(e8))
 	nextAddress := cpu.registers.read(R_PC) + offset
 	cpu.registers.write(R_PC, nextAddress)
+
+	cpu.Cycle(3)
 }
 
 func ldhR8ToA8(cpu *CPU, src CpuRegister) {
 	a8 := readByteFromPC(cpu)
 	address := 0xFF00 + uint16(a8)
 	cpu.bus.writeByte(address, byte(cpu.registers.read(src)))
+	cpu.Cycle(3)
 }
 
 func ldhA8ToR8(cpu *CPU, dest CpuRegister) {
 	a8 := readByteFromPC(cpu)
 	address := 0xFF00 + uint16(a8)
 	cpu.registers.write(dest, uint16(cpu.bus.readByte(address)))
+	cpu.Cycle(3)
 }
 
 func cpN8(cpu *CPU) {
 	minuend := byte(cpu.registers.read(R_A))
 	subtrahend := readByteFromPC(cpu)
 	cp(cpu, minuend, subtrahend)
+	cpu.Cycle(2)
 }
 
 func cpR8(cpu *CPU, src CpuRegister) {
 	minuend := byte(cpu.registers.read(R_A))
 	subtrahend := byte(cpu.registers.read(src))
 	cp(cpu, minuend, subtrahend)
+	cpu.Cycle(1)
 }
 
 func cpMR8(cpu *CPU, src CpuRegister) {
 	minuend := byte(cpu.registers.read(R_A))
 	subtrahend := cpu.bus.readByte(cpu.registers.read(src))
 	cp(cpu, minuend, subtrahend)
+	cpu.Cycle(2)
 }
 
 func cp(cpu *CPU, minuend byte, subtrahend byte) {
@@ -987,6 +1022,8 @@ func addR8(cpu *CPU, src CpuRegister) {
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
 	)
+
+	cpu.Cycle(1)
 }
 
 func addR16(cpu *CPU, src CpuRegister) {
@@ -999,6 +1036,8 @@ func addR16(cpu *CPU, src CpuRegister) {
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, ((hl&0x0FFF)+(addend&0x0FFF)) > 0x0FFF)
 	cpu.registers.setFlag(FLAG_C, uint32(hl)+uint32(addend) > 0xFFFF)
+
+	cpu.Cycle(2)
 }
 
 func addMR16(cpu *CPU, src CpuRegister) {
@@ -1014,6 +1053,8 @@ func addMR16(cpu *CPU, src CpuRegister) {
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
 	)
+
+	cpu.Cycle(2)
 }
 
 func addN8A(cpu *CPU) {
@@ -1029,6 +1070,8 @@ func addN8A(cpu *CPU) {
 		((a&0x0F)+(addend&0x0F)) > 0x0F,
 		result > 0xFF,
 	)
+
+	cpu.Cycle(2)
 }
 
 func addN8SP(cpu *CPU) {
@@ -1044,18 +1087,23 @@ func addN8SP(cpu *CPU) {
 		((sp&0x0F)+(uint16(addend)&0x0F)) > 0x0F,
 		((sp&0xFF)+(uint16(addend)&0xFF)) > 0xFF,
 	)
+
+	cpu.Cycle(4)
 }
 
 func adcR8(cpu *CPU, src CpuRegister) {
 	adc(cpu, cpu.registers.read(src))
+	cpu.Cycle(1)
 }
 
 func adcMR16(cpu *CPU, src CpuRegister) {
 	adc(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+	cpu.Cycle(2)
 }
 
 func adcN8(cpu *CPU) {
 	adc(cpu, uint16(readByteFromPC(cpu)))
+	cpu.Cycle(2)
 }
 
 func adc(cpu *CPU, addend uint16) {
@@ -1075,14 +1123,17 @@ func adc(cpu *CPU, addend uint16) {
 
 func subR8(cpu *CPU, src CpuRegister) {
 	sub(cpu, cpu.registers.read(src))
+	cpu.Cycle(1)
 }
 
 func subMR16(cpu *CPU, src CpuRegister) {
 	sub(cpu, uint16(cpu.bus.readByte(cpu.registers.read(src))))
+	cpu.Cycle(2)
 }
 
 func subN8(cpu *CPU) {
 	sub(cpu, uint16(readByteFromPC(cpu)))
+	cpu.Cycle(2)
 }
 
 func sub(cpu *CPU, subtrahend uint16) {
@@ -1101,14 +1152,17 @@ func sub(cpu *CPU, subtrahend uint16) {
 
 func sbcR8(cpu *CPU, src CpuRegister) {
 	sbc(cpu, byte(cpu.registers.read(src)))
+	cpu.Cycle(1)
 }
 
 func sbcMR16(cpu *CPU, src CpuRegister) {
 	sbc(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func sbcN8(cpu *CPU) {
 	sbc(cpu, readByteFromPC(cpu))
+	cpu.Cycle(2)
 }
 
 func sbc(cpu *CPU, subtrahend byte) {
@@ -1128,14 +1182,17 @@ func sbc(cpu *CPU, subtrahend byte) {
 
 func andR8(cpu *CPU, src CpuRegister) {
 	and(cpu, byte(cpu.registers.read(src)))
+	cpu.Cycle(1)
 }
 
 func andMR16(cpu *CPU, src CpuRegister) {
 	and(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func andN8(cpu *CPU) {
 	and(cpu, readByteFromPC(cpu))
+	cpu.Cycle(2)
 }
 
 func and(cpu *CPU, comparator byte) {
@@ -1148,14 +1205,17 @@ func and(cpu *CPU, comparator byte) {
 
 func orR8(cpu *CPU, src CpuRegister) {
 	or(cpu, byte(cpu.registers.read(src)))
+	cpu.Cycle(1)
 }
 
 func orMR16(cpu *CPU, src CpuRegister) {
 	or(cpu, cpu.bus.readByte(cpu.registers.read(src)))
+	cpu.Cycle(2)
 }
 
 func orN8(cpu *CPU) {
 	or(cpu, readByteFromPC(cpu))
+	cpu.Cycle(2)
 }
 
 func or(cpu *CPU, comparator byte) {
@@ -1174,6 +1234,8 @@ func rlca(cpu *CPU) {
 
 	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(false, false, false, c)
+
+	cpu.Cycle(1)
 }
 
 func rrca(cpu *CPU) {
@@ -1184,6 +1246,8 @@ func rrca(cpu *CPU) {
 
 	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(false, false, false, c)
+
+	cpu.Cycle(1)
 }
 
 func rla(cpu *CPU) {
@@ -1195,6 +1259,8 @@ func rla(cpu *CPU) {
 
 	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(false, false, false, msb == 1)
+
+	cpu.Cycle(1)
 }
 
 func rra(cpu *CPU) {
@@ -1206,6 +1272,8 @@ func rra(cpu *CPU) {
 
 	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(false, false, false, lsb == 1)
+
+	cpu.Cycle(1)
 }
 
 // The DAA (Decimal Adjust Accumulator) instruction is used to adjust the
@@ -1242,6 +1310,8 @@ func daa(cpu *CPU) {
 
 	cpu.registers.write(R_A, uint16(a))
 	cpu.registers.setFlags(a == 0, n, false, c)
+
+	cpu.Cycle(1)
 }
 
 func cpl(cpu *CPU) {
@@ -1250,18 +1320,24 @@ func cpl(cpu *CPU) {
 	cpu.registers.write(R_A, r)
 	cpu.registers.setFlag(FLAG_N, true)
 	cpu.registers.setFlag(FLAG_H, true)
+
+	cpu.Cycle(1)
 }
 
 func scf(cpu *CPU) {
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, false)
 	cpu.registers.setFlag(FLAG_C, true)
+
+	cpu.Cycle(1)
 }
 
 func ccf(cpu *CPU) {
 	cpu.registers.setFlag(FLAG_N, false)
 	cpu.registers.setFlag(FLAG_H, false)
 	cpu.registers.setFlag(FLAG_C, !cpu.registers.readFlag(FLAG_C))
+
+	cpu.Cycle(1)
 }
 
 func push(cpu *CPU, src CpuRegister) {
@@ -1286,20 +1362,24 @@ func jpA16(cpu *CPU, cond condition) {
 	nextAddress := readWordFromPC(cpu)
 
 	if !checkCondition(cpu, cond) {
+		cpu.Cycle(3)
 		return
 	}
 
 	cpu.registers.write(R_PC, nextAddress)
+	cpu.Cycle(4)
 }
 
 func jpR16(cpu *CPU, src CpuRegister) {
-	ldR16ToR16(cpu, src, R_PC)
+	cpu.registers.write(R_PC, cpu.registers.read(src))
+	cpu.Cycle(1)
 }
 
 func call(cpu *CPU, cond condition) {
 	address := readWordFromPC(cpu)
 
 	if !checkCondition(cpu, cond) {
+		cpu.Cycle(3)
 		return
 	}
 
@@ -1312,10 +1392,12 @@ func call(cpu *CPU, cond condition) {
 	cpu.bus.writeByte(cpu.registers.read(R_SP), lo)
 
 	cpu.registers.write(R_PC, address)
+	cpu.Cycle(2)
 }
 
 func ret(cpu *CPU, cond condition) {
 	if !checkCondition(cpu, cond) {
+		cpu.Cycle(2)
 		return
 	}
 
@@ -1326,6 +1408,7 @@ func ret(cpu *CPU, cond condition) {
 	incR16(cpu, R_SP)
 
 	cpu.registers.write(R_PC, BytesToUint16(hi, lo))
+	cpu.Cycle(1)
 }
 
 func rst(cpu *CPU, address uint16) {
@@ -1340,20 +1423,37 @@ func prefix(cpu *CPU) {
 	opcode := readByteFromPC(cpu)
 
 	register := decodeRegister(opcode & 0x07)
+
 	bit := (opcode >> 3) & 0b111
 	bitOperation := (opcode >> 6) & 0b11
+
+	if register == R_HL {
+		cpu.Cycle(3)
+	} else {
+		cpu.Cycle(2)
+	}
 
 	switch bitOperation {
 	case 1:
 		cbBit(cpu, register, bit)
 	case 2:
 		cbRes(cpu, register, bit)
+		if register == R_HL {
+			cpu.Cycle(1)
+		}
 	case 3:
 		cbSet(cpu, register, bit)
+		if register == R_HL {
+			cpu.Cycle(1)
+		}
 	}
 
 	if bitOperation != 0 {
 		return
+	}
+
+	if register == R_HL {
+		cpu.Cycle(1)
 	}
 
 	switch bit {

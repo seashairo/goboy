@@ -55,20 +55,25 @@ const (
 
 type Bus struct {
 	cartridge               Cartridge
-	interruptEnableRegister InterruptRegister
 	wram                    RAM
 	hram                    RAM
+	interruptEnableRegister InterruptRegister
 	io                      IO
 }
 
-func NewBus(cartridgePath string) Bus {
-	return Bus{
+func NewBus(cartridgePath string, timer *Timer) Bus {
+	interruptEnableRegister := NewInterruptRegister(0)
+	io := NewIO(timer, interruptEnableRegister)
+
+	bus := Bus{
 		cartridge:               LoadCartridge(cartridgePath),
-		interruptEnableRegister: NewInterruptRegister(0),
 		wram:                    NewRAM(SWITCHABLE_WORK_RAM_END-WORK_RAM_START+1, WORK_RAM_START),
 		hram:                    NewRAM(HIGH_RAM_END-HIGH_RAM_START+1, HIGH_RAM_START),
-		io:                      NewIO(),
+		interruptEnableRegister: interruptEnableRegister,
+		io:                      io,
 	}
+
+	return bus
 }
 
 func (bus *Bus) readByte(address uint16) byte {

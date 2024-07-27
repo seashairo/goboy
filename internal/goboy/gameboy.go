@@ -8,33 +8,46 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
+var ROMS = []string{
+	"./data/roms/blargg/01-special.gb",
+	"./data/roms/blargg/02-interrupts.gb",
+	"./data/roms/blargg/03-op sp,hl.gb",
+	"./data/roms/blargg/04-op r,imm.gb",
+	"./data/roms/blargg/05-op rp.gb",
+	"./data/roms/blargg/06-ld r,r.gb",
+	"./data/roms/blargg/07-jr,jp,call,ret,rst.gb",
+	"./data/roms/blargg/08-misc instrs.gb",
+	"./data/roms/blargg/09-op r,r.gb",
+	"./data/roms/blargg/10-bit ops.gb",
+	"./data/roms/blargg/11-op a,(hl).gb",
+}
+
+var ROM_PATH = ROMS[10]
 
 type GameBoy struct {
 	running bool
 	paused  bool
-	ticks   uint64
 
 	cpu   CPU
 	ppu   PPU
-	timer Timer
+	timer *Timer
 	bus   Bus
 }
 
 func NewGameBoy() GameBoy {
-	bus := NewBus(ROM_PATH)
-	cpu := NewCPU(bus)
-	ppu := NewPPU()
 	timer := NewTimer()
+	bus := NewBus(ROM_PATH, &timer)
+	cpu := NewCPU(bus, &timer)
+	ppu := NewPPU()
 
 	return GameBoy{
 		running: false,
 		paused:  false,
-		ticks:   0,
-		cpu:     cpu,
-		ppu:     ppu,
-		timer:   timer,
-		bus:     bus,
+
+		cpu:   cpu,
+		ppu:   ppu,
+		timer: &timer,
+		bus:   bus,
 	}
 }
 
@@ -42,16 +55,12 @@ func (gameboy *GameBoy) Run() {
 	gameboy.running = true
 	stepping := false
 	input := bufio.NewReader(os.Stdin)
+	gameboy.cpu.debugPrint()
 
 	for gameboy.running {
 		if gameboy.paused {
 			time.Sleep(16 * time.Millisecond)
 			continue
-		}
-
-		if gameboy.ticks == 151344 {
-			fmt.Println("\nEntering step mode")
-			// stepping = true
 		}
 
 		if stepping {
@@ -74,14 +83,6 @@ func (gameboy *GameBoy) Run() {
 		}
 
 		gameboy.cpu.Tick()
-		gameboy.timer.Tick()
-		gameboy.ppu.Tick()
-
-		gameboy.ticks += 1
-
-		if gameboy.ticks > 500000 {
-			break
-		}
 	}
 
 	fmt.Println("Terminating...")

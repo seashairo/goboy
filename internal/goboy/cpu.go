@@ -7,16 +7,18 @@ import (
 type CPU struct {
 	registers CpuRegisters
 	bus       Bus
+	timer     *Timer
 
 	halted                  bool
 	interruptMasterEnabled  bool
 	enablingInterruptMaster bool
 }
 
-func NewCPU(bus Bus) CPU {
+func NewCPU(bus Bus, timer *Timer) CPU {
 	return CPU{
 		registers:               NewCpuRegisters(),
 		bus:                     bus,
+		timer:                   timer,
 		halted:                  false,
 		interruptMasterEnabled:  false,
 		enablingInterruptMaster: false,
@@ -25,14 +27,15 @@ func NewCPU(bus Bus) CPU {
 
 func (cpu *CPU) Tick() {
 	if cpu.halted {
+		cpu.Cycle(1)
 		if cpu.bus.io.interrupts.readByte() != 0 {
 			cpu.halted = false
 		}
 	} else {
-		cpu.debugPrint()
 		currentOpcode := cpu.fetchNextOpcode()
 		instruction := fetchInstruction(currentOpcode)
 		instruction(cpu)
+		cpu.debugPrint()
 	}
 
 	if cpu.interruptMasterEnabled {
@@ -51,6 +54,13 @@ func (cpu *CPU) fetchNextOpcode() byte {
 	cpu.registers.write(R_PC, pc+1)
 
 	return opcode
+}
+
+func (cpu *CPU) Cycle(mCycles int) {
+	tCycles := mCycles * 4
+	for i := 0; i < tCycles; i++ {
+		cpu.timer.Tick(cpu)
+	}
 }
 
 func (cpu *CPU) debugPrint() {

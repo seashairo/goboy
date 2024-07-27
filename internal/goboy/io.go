@@ -8,17 +8,24 @@ import (
 
 type IO struct {
 	interrupts InterruptRegister
+	timer      *Timer
 }
 
-func NewIO() IO {
+func NewIO(timer *Timer, interruptEnableRegister InterruptRegister) IO {
 	return IO{
-		interrupts: NewInterruptRegister(0),
+		interrupts: interruptEnableRegister,
+		timer:      timer,
 	}
 }
 
 func (io *IO) writeByte(address uint16, value byte) {
 	if address == 0xFF01 {
 		appendSerialToFile(value)
+		return
+	}
+
+	if address >= 0xFF04 && address <= 0xFF07 {
+		io.timer.writeByte(address, value)
 		return
 	}
 
@@ -31,6 +38,10 @@ func (io *IO) writeByte(address uint16, value byte) {
 }
 
 func (io *IO) readByte(address uint16) byte {
+	if address >= 0xFF04 && address <= 0xFF07 {
+		io.timer.readByte(address)
+	}
+
 	if address == 0xFF0F {
 		return io.interrupts.readByte()
 	}
