@@ -2,7 +2,6 @@ package goboy
 
 // @see https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 type Timer struct {
-	cycles uint64
 	// This register is incremented at a rate of 16384Hz (~16779Hz on SGB).
 	// Writing any value to this register resets it to $00. Additionally, this
 	// register is reset when executing the stop instruction, and only begins
@@ -27,11 +26,10 @@ type Timer struct {
 
 func NewTimer() Timer {
 	return Timer{
-		cycles: 0,
-		div:    0x1E,
-		tima:   0,
-		tma:    0,
-		tac:    0xF8,
+		div:  0x1E,
+		tima: 0,
+		tma:  0,
+		tac:  0xF8,
 	}
 }
 

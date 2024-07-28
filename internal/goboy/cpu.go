@@ -6,7 +6,7 @@ import (
 
 type CPU struct {
 	registers CpuRegisters
-	bus       Bus
+	bus       *Bus
 	timer     *Timer
 
 	halted                  bool
@@ -14,7 +14,7 @@ type CPU struct {
 	enablingInterruptMaster bool
 }
 
-func NewCPU(bus Bus, timer *Timer) CPU {
+func NewCPU(bus *Bus, timer *Timer) CPU {
 	return CPU{
 		registers:               NewCpuRegisters(),
 		bus:                     bus,

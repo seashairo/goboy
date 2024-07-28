@@ -8,25 +8,12 @@ import (
 	"time"
 )
 
-var ROMS = []string{
-	"./data/roms/blargg/01-special.gb",
-	"./data/roms/blargg/02-interrupts.gb",
-	"./data/roms/blargg/03-op sp,hl.gb",
-	"./data/roms/blargg/04-op r,imm.gb",
-	"./data/roms/blargg/05-op rp.gb",
-	"./data/roms/blargg/06-ld r,r.gb",
-	"./data/roms/blargg/07-jr,jp,call,ret,rst.gb",
-	"./data/roms/blargg/08-misc instrs.gb",
-	"./data/roms/blargg/09-op r,r.gb",
-	"./data/roms/blargg/10-bit ops.gb",
-	"./data/roms/blargg/11-op a,(hl).gb",
-}
-
-var ROM_PATH = ROMS[10]
+const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
 type GameBoy struct {
 	running bool
 	paused  bool
+	cycles  uint64
 
 	cpu   CPU
 	ppu   PPU
@@ -37,17 +24,18 @@ type GameBoy struct {
 func NewGameBoy() GameBoy {
 	timer := NewTimer()
 	bus := NewBus(ROM_PATH, &timer)
-	cpu := NewCPU(bus, &timer)
-	ppu := NewPPU()
+	cpu := NewCPU(&bus, &timer)
+	ppu := NewPPU(&bus)
 
 	return GameBoy{
 		running: false,
 		paused:  false,
+		cycles:  0,
 
 		cpu:   cpu,
-		ppu:   ppu,
 		timer: &timer,
 		bus:   bus,
+		ppu:   ppu,
 	}
 }
 
@@ -83,6 +71,11 @@ func (gameboy *GameBoy) Run() {
 		}
 
 		gameboy.cpu.Tick()
+
+		gameboy.cycles++
+		if gameboy.cycles > 2000000 {
+			gameboy.running = false
+		}
 	}
 
 	fmt.Println("Terminating...")

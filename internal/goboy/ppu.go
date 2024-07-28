@@ -1,10 +1,13 @@
 package goboy
 
 type PPU struct {
+	bus *Bus
 }
 
-func NewPPU() PPU {
-	return PPU{}
+func NewPPU(bus *Bus) PPU {
+	return PPU{
+		bus: bus,
+	}
 }
 
 func (ppu *PPU) Tick() {
