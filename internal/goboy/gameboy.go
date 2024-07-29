@@ -71,12 +71,14 @@ func (gameboy *GameBoy) Run() {
 		}
 
 		gameboy.cpu.Tick()
+		gameboy.ppu.Tick()
 
 		gameboy.cycles++
-		if gameboy.cycles > 2000000 {
-			gameboy.running = false
-		}
 	}
 
-	fmt.Println("Terminating...")
+	fmt.Println("GameBoy terminating")
+}
+
+func (gameboy *GameBoy) Stop() {
+	gameboy.running = false
 }

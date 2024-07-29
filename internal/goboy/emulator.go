@@ -1,0 +1,14 @@
+package goboy
+
+func Emulate() {
+	gameboy := NewGameBoy()
+	go gameboy.Run()
+	defer gameboy.Stop()
+
+	ui := NewUI()
+	defer ui.Destroy()
+
+	for ui.running {
+		ui.Update()
+	}
+}
