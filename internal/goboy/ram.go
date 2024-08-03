@@ -13,10 +13,10 @@ type RAM struct {
 	data []byte
 }
 
-func NewRAM(size uint16, offset uint16) RAM {
+func NewRAM(size uint16, offset uint16) *RAM {
 	fmt.Printf("Creating RAM bank with size 0x%4.4X and offset 0x%4.4X\n", size, offset)
 
-	return RAM{
+	return &RAM{
 		size:   size,
 		offset: offset,
 		data:   make([]byte, size),

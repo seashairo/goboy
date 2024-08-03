@@ -5,7 +5,7 @@ func Emulate() {
 	go gameboy.Run()
 	defer gameboy.Stop()
 
-	ui := NewUI(&gameboy)
+	ui := NewUI(gameboy)
 	defer ui.Destroy()
 
 	for ui.running {

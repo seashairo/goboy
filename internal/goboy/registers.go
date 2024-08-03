@@ -73,8 +73,8 @@ type CpuRegisters struct {
 	pc uint16
 }
 
-func NewCpuRegisters() CpuRegisters {
-	return CpuRegisters{
+func NewCpuRegisters() *CpuRegisters {
+	return &CpuRegisters{
 		a:  0x01,
 		f:  0xB0,
 		b:  0x00,

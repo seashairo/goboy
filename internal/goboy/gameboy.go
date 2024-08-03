@@ -15,25 +15,25 @@ type GameBoy struct {
 	paused  bool
 	cycles  uint64
 
-	cpu   CPU
-	ppu   PPU
+	cpu   *CPU
+	ppu   *PPU
 	timer *Timer
-	bus   Bus
+	bus   *Bus
 }
 
-func NewGameBoy() GameBoy {
+func NewGameBoy() *GameBoy {
 	timer := NewTimer()
-	bus := NewBus(ROM_PATH, &timer)
-	cpu := NewCPU(&bus, &timer)
-	ppu := NewPPU(&bus)
+	bus := NewBus(ROM_PATH, timer)
+	cpu := NewCPU(bus, timer)
+	ppu := NewPPU(bus)
 
-	return GameBoy{
+	return &GameBoy{
 		running: false,
 		paused:  false,
 		cycles:  0,
 
 		cpu:   cpu,
-		timer: &timer,
+		timer: timer,
 		bus:   bus,
 		ppu:   ppu,
 	}

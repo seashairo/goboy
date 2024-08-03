@@ -4,8 +4,8 @@ type PPU struct {
 	bus *Bus
 }
 
-func NewPPU(bus *Bus) PPU {
-	return PPU{
+func NewPPU(bus *Bus) *PPU {
+	return &PPU{
 		bus: bus,
 	}
 }

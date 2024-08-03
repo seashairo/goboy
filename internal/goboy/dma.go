@@ -18,8 +18,8 @@ type DMA struct {
 	byteIndex uint16
 }
 
-func NewDMA(bus *Bus) DMA {
-	return DMA{
+func NewDMA(bus *Bus) *DMA {
+	return &DMA{
 		bus:       bus,
 		active:    false,
 		delay:     2,

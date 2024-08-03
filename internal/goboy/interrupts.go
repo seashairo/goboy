@@ -14,8 +14,8 @@ type InterruptRegister struct {
 	data byte
 }
 
-func NewInterruptRegister(data byte) InterruptRegister {
-	return InterruptRegister{data: data}
+func NewInterruptRegister(data byte) *InterruptRegister {
+	return &InterruptRegister{data: data}
 }
 
 func (ie *InterruptRegister) SetInterrupt(kind InterruptKind, on bool) {

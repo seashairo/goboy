@@ -24,8 +24,8 @@ type Timer struct {
 	tac byte
 }
 
-func NewTimer() Timer {
-	return Timer{
+func NewTimer() *Timer {
+	return &Timer{
 		div:  0x1E,
 		tima: 0,
 		tma:  0,

@@ -54,16 +54,16 @@ const (
 )
 
 type Bus struct {
-	cartridge               Cartridge
-	wram                    RAM
-	hram                    RAM
-	vram                    RAM
-	oam                     RAM
-	interruptEnableRegister InterruptRegister
-	io                      IO
+	cartridge               *Cartridge
+	wram                    *RAM
+	hram                    *RAM
+	vram                    *RAM
+	oam                     *RAM
+	interruptEnableRegister *InterruptRegister
+	io                      *IO
 }
 
-func NewBus(cartridgePath string, timer *Timer) Bus {
+func NewBus(cartridgePath string, timer *Timer) *Bus {
 	interruptEnableRegister := NewInterruptRegister(0)
 
 	bus := Bus{
@@ -78,7 +78,7 @@ func NewBus(cartridgePath string, timer *Timer) Bus {
 	io := NewIO(&bus, timer, interruptEnableRegister)
 	bus.io = io
 
-	return bus
+	return &bus
 }
 
 func (bus *Bus) readByte(address uint16) byte {

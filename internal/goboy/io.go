@@ -7,21 +7,21 @@ import (
 )
 
 type IO struct {
-	interrupts InterruptRegister
+	interrupts *InterruptRegister
 	timer      *Timer
 	dma        *DMA
 }
 
-func NewIO(bus *Bus, timer *Timer, interruptEnableRegister InterruptRegister) IO {
+func NewIO(bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister) *IO {
 	// todo: should all these things be singletons? the architecture needs to
 	// change so different "devices" all have access to the bus and are also
 	// accessible through the bus
 	dma := NewDMA(bus)
 
-	return IO{
+	return &IO{
 		interrupts: interruptEnableRegister,
 		timer:      timer,
-		dma:        &dma,
+		dma:        dma,
 	}
 }
 

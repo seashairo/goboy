@@ -342,7 +342,7 @@ type Cartridge struct {
 	header   RomHeader
 }
 
-func LoadCartridge(path string) Cartridge {
+func LoadCartridge(path string) *Cartridge {
 	fmt.Printf("Loading cartridge from %s\n", path)
 
 	romData, err := os.ReadFile(path)
@@ -376,7 +376,7 @@ func LoadCartridge(path string) Cartridge {
 
 	cartridge.debugPrint()
 
-	return cartridge
+	return &cartridge
 }
 
 func (cartridge *Cartridge) debugPrint() {
