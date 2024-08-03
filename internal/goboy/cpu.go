@@ -60,6 +60,7 @@ func (cpu *CPU) Cycle(mCycles int) {
 	tCycles := mCycles * 4
 	for i := 0; i < tCycles; i++ {
 		cpu.timer.Tick(cpu)
+		cpu.bus.io.dma.Tick()
 	}
 }
 

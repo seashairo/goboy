@@ -65,7 +65,6 @@ type Bus struct {
 
 func NewBus(cartridgePath string, timer *Timer) Bus {
 	interruptEnableRegister := NewInterruptRegister(0)
-	io := NewIO(timer, interruptEnableRegister)
 
 	bus := Bus{
 		cartridge:               LoadCartridge(cartridgePath),
@@ -74,8 +73,10 @@ func NewBus(cartridgePath string, timer *Timer) Bus {
 		vram:                    NewRAM(8192, VIDEO_RAM_START),
 		oam:                     NewRAM(160, OAM_START),
 		interruptEnableRegister: interruptEnableRegister,
-		io:                      io,
 	}
+
+	io := NewIO(&bus, timer, interruptEnableRegister)
+	bus.io = io
 
 	return bus
 }

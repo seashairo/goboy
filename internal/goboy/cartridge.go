@@ -435,7 +435,8 @@ func (cartridge *Cartridge) readByte(address uint16) byte {
 }
 
 func (cartridge *Cartridge) writeByte(address uint16, value byte) {
-	panic("Can't write to ROM")
+	// You can write to ROM, it does an MBC switch but that's not implemented atm
+	// panic("Can't write to ROM")
 }
 
 func (cartridge *Cartridge) writeWord(address uint16, value uint16) {
