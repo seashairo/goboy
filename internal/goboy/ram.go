@@ -27,19 +27,6 @@ func (ram *RAM) readByte(address uint16) byte {
 	return ram.data[address-ram.offset]
 }
 
-func (ram *RAM) readWord(address uint16) uint16 {
-	lo := ram.readByte(address)
-	hi := ram.readByte(address + 1)
-
-	return BytesToUint16(hi, lo)
-}
-
 func (ram *RAM) writeByte(address uint16, value byte) {
 	ram.data[address-ram.offset] = value
-}
-
-func (ram *RAM) writeWord(address uint16, value uint16) {
-	hi, lo := Uint16ToBytes(value)
-	ram.writeByte(address, lo)
-	ram.writeByte(address+1, hi)
 }
