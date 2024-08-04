@@ -55,37 +55,34 @@ const (
 
 type Bus struct {
 	cartridge               *Cartridge
+	ppu                     *PPU
 	wram                    *RAM
 	hram                    *RAM
-	vram                    *RAM
-	oam                     *RAM
-	interruptEnableRegister *InterruptRegister
 	io                      *IO
+	interruptEnableRegister *InterruptRegister
 }
 
-func NewBus(cartridgePath string, timer *Timer) *Bus {
-	interruptEnableRegister := NewInterruptRegister(0)
-
-	bus := Bus{
-		cartridge:               LoadCartridge(cartridgePath),
-		wram:                    NewRAM(8192, WORK_RAM_START),
-		hram:                    NewRAM(127, HIGH_RAM_START),
-		vram:                    NewRAM(8192, VIDEO_RAM_START),
-		oam:                     NewRAM(160, OAM_START),
-		interruptEnableRegister: interruptEnableRegister,
-	}
-
-	io := NewIO(&bus, timer, interruptEnableRegister)
+func (bus *Bus) Init(
+	cartridge *Cartridge,
+	ppu *PPU,
+	wram *RAM,
+	hram *RAM,
+	io *IO,
+	interruptEnableRegister *InterruptRegister,
+) {
+	bus.cartridge = cartridge
+	bus.ppu = ppu
+	bus.wram = wram
+	bus.hram = hram
 	bus.io = io
-
-	return &bus
+	bus.interruptEnableRegister = interruptEnableRegister
 }
 
 func (bus *Bus) readByte(address uint16) byte {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		return bus.cartridge.readByte(address)
 	} else if address <= VIDEO_RAM_END {
-		return bus.vram.readByte(address)
+		return bus.ppu.readByte(address)
 	} else if address <= EXTERNAL_RAM_END {
 		return bus.cartridge.readByte(address)
 	} else if address <= SWITCHABLE_WORK_RAM_END {
@@ -93,7 +90,7 @@ func (bus *Bus) readByte(address uint16) byte {
 	} else if address <= ECHO_RAM_END {
 		// fmt.Printf("Reading from %2.2X not supported (ECHO_RAM)\n", address)
 	} else if address <= OAM_END {
-		return bus.oam.readByte(address)
+		return bus.ppu.readByte(address)
 	} else if address <= NOT_USABLE_END {
 		// fmt.Printf("Reading from %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {
@@ -118,7 +115,7 @@ func (bus *Bus) writeByte(address uint16, value byte) {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		bus.cartridge.writeByte(address, value)
 	} else if address <= VIDEO_RAM_END {
-		bus.vram.writeByte(address, value)
+		bus.ppu.writeByte(address, value)
 	} else if address <= EXTERNAL_RAM_END {
 		bus.cartridge.writeByte(address, value)
 	} else if address <= SWITCHABLE_WORK_RAM_END {
@@ -126,7 +123,7 @@ func (bus *Bus) writeByte(address uint16, value byte) {
 	} else if address <= ECHO_RAM_END {
 		// fmt.Printf("Writing to %2.2X not supported (ECHO_RAM)\n", address)
 	} else if address <= OAM_END {
-		bus.oam.writeByte(address, value)
+		bus.ppu.writeByte(address, value)
 	} else if address <= NOT_USABLE_END {
 		// fmt.Printf("Writing to %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {

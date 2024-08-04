@@ -27,3 +27,7 @@ func BoolToUint16(val bool) uint16 {
 
 	return 0
 }
+
+func Between(value uint16, lo uint16, hi uint16) bool {
+	return value >= lo && value <= hi
+}

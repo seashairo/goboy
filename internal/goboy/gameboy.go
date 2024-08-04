@@ -22,10 +22,21 @@ type GameBoy struct {
 }
 
 func NewGameBoy() *GameBoy {
+	bus := &Bus{}
+
+	// Initialize all the Game Boy hardware
 	timer := NewTimer()
-	bus := NewBus(ROM_PATH, timer)
 	cpu := NewCPU(bus, timer)
 	ppu := NewPPU(bus)
+
+	cartridge := LoadCartridge(ROM_PATH)
+	wram := NewRAM(8192, WORK_RAM_START)
+	hram := NewRAM(127, HIGH_RAM_START)
+	interruptEnableRegister := NewInterruptRegister(0)
+	io := NewIO(bus, timer, interruptEnableRegister)
+
+	// And then put it on the bus so everything knows what it has access to
+	bus.Init(cartridge, ppu, wram, hram, io, interruptEnableRegister)
 
 	return &GameBoy{
 		running: false,
