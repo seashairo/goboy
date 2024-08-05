@@ -14,8 +14,6 @@ const TILE_HEIGHT = 8
 const TILE_WIDTH = 8
 const TILES_X = 16
 const TILES_Y = 24
-const LCD_WIDTH = 160
-const LCD_HEIGHT = 144
 
 type UI struct {
 	running bool
@@ -25,6 +23,8 @@ type UI struct {
 	lcdRenderer *sdl.Renderer
 	lcdTexture  *sdl.Texture
 	lcdSurface  *sdl.Surface
+
+	previousFrame uint32
 
 	tileDebugWindow   *sdl.Window
 	tileDebugRenderer *sdl.Renderer
@@ -86,6 +86,8 @@ func NewUI(gameboy *GameBoy) UI {
 		lcdSurface:  lcdSurface,
 		lcdTexture:  lcdTexture,
 
+		previousFrame: 0,
+
 		tileDebugWindow:   tileDebugWindow,
 		tileDebugRenderer: tileDebugRenderer,
 		tileDebugSurface:  tileDebugSurface,
@@ -96,6 +98,7 @@ func NewUI(gameboy *GameBoy) UI {
 func (ui *UI) Update() {
 	ui.handleEvents()
 	ui.updateTileDebugWindow()
+	ui.updateLcdWindow()
 }
 
 // @see https://gbdev.io/pandocs/Tile_Data.html
@@ -150,6 +153,12 @@ func (ui *UI) updateTileDebugWindow() {
 	ui.tileDebugTexture.Update(&rect, unsafe.Pointer(&(pixels[0])), int(surface.Pitch))
 	ui.tileDebugRenderer.Copy(ui.tileDebugTexture, nil, nil)
 	ui.tileDebugRenderer.Present()
+}
+
+func (ui *UI) updateLcdWindow() {
+	if ui.previousFrame == ui.gameboy.ppu.currentFrame {
+		return
+	}
 }
 
 func (ui *UI) handleEvents() {

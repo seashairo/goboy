@@ -104,13 +104,6 @@ func (bus *Bus) readByte(address uint16) byte {
 	panic("Somehow didn't manage to read a byte")
 }
 
-func (bus *Bus) readWord(address uint16) uint16 {
-	lo := bus.readByte(address)
-	hi := bus.readByte(address + 1)
-
-	return BytesToUint16(hi, lo)
-}
-
 func (bus *Bus) writeByte(address uint16, value byte) {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		bus.cartridge.writeByte(address, value)
@@ -133,10 +126,4 @@ func (bus *Bus) writeByte(address uint16, value byte) {
 	} else {
 		bus.interruptEnableRegister.writeByte(value)
 	}
-}
-
-func (bus *Bus) writeWord(address uint16, value uint16) {
-	hi, lo := Uint16ToBytes(value)
-	bus.writeByte(address, lo)
-	bus.writeByte(address+1, hi)
 }
