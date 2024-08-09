@@ -1,12 +1,17 @@
 package goboy
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // @see https://gbdev.io/pandocs/Rendering.html
 const (
 	SCANLINES_PER_FRAME = 154
 	DOTS_PER_LINE       = 456
 	FRAME_BUFFER_SIZE   = LCD_HEIGHT * LCD_WIDTH
+	LIMIT_FPS           = true
+	TARGET_FRAME_TIME   = int64(1000 / 60) // 60 fps
 )
 
 type OamEntryFlag byte
@@ -36,9 +41,12 @@ type PPU struct {
 	vram *RAM
 	oam  *RAM
 
-	currentFrame  uint32
-	scanlineTicks uint32
-	videoBuffer   [FRAME_BUFFER_SIZE]uint32
+	currentFrame      uint32
+	scanlineTicks     uint32
+	videoBuffer       [FRAME_BUFFER_SIZE]uint32
+	previousFrameTime int64
+	startTime         int64
+	frameCount        int64
 }
 
 func NewPPU(bus *Bus) *PPU {
@@ -47,9 +55,12 @@ func NewPPU(bus *Bus) *PPU {
 		vram: NewRAM(8192, VIDEO_RAM_START),
 		oam:  NewRAM(160, OAM_START),
 
-		currentFrame:  0,
-		scanlineTicks: 0,
-		videoBuffer:   [FRAME_BUFFER_SIZE]uint32{},
+		currentFrame:      0,
+		scanlineTicks:     0,
+		videoBuffer:       [FRAME_BUFFER_SIZE]uint32{},
+		previousFrameTime: time.Now().UnixMilli(),
+		startTime:         time.Now().UnixMilli(),
+		frameCount:        0,
 	}
 }
 
@@ -129,6 +140,27 @@ func (ppu *PPU) handleModeHblank() {
 				ppu.bus.interruptEnableRegister.SetInterrupt(INT_LCD, true)
 			}
 			ppu.currentFrame++
+
+			if LIMIT_FPS {
+				currentTime := time.Now().UnixMilli()
+				frameTime := currentTime - ppu.previousFrameTime
+
+				if frameTime < TARGET_FRAME_TIME {
+					// todo: this isn't quite right, it's hitting 70 fps, try moving timer
+					// to its own class
+					time.Sleep(time.Duration(TARGET_FRAME_TIME-frameTime+1) * time.Millisecond)
+				}
+
+				if currentTime-ppu.startTime > 1000 {
+					fps := ppu.frameCount
+					ppu.startTime = currentTime
+					ppu.frameCount = 0
+					fmt.Printf("fps: %d\n", fps)
+				}
+
+				ppu.frameCount++
+				ppu.previousFrameTime = currentTime
+			}
 		} else {
 			ppu.bus.io.lcd.SetMode(LCD_MODE_OAM)
 		}

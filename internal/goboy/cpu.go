@@ -59,8 +59,10 @@ func (cpu *CPU) fetchNextOpcode() byte {
 func (cpu *CPU) Cycle(mCycles int) {
 	tCycles := mCycles * 4
 	for i := 0; i < tCycles; i++ {
+		// todo: this method should be at gameboy level, not cpu level
 		cpu.timer.Tick(cpu)
 		cpu.bus.io.dma.Tick()
+		cpu.bus.ppu.Tick()
 	}
 }
 

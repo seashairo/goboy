@@ -6,7 +6,7 @@ import "fmt"
 type DMA struct {
 	bus *Bus
 
-	// Whether or not transfer is in progress. An active DMA transfer prevents
+	// Whether transfer is in progress. An active DMA transfer prevents
 	// certain operations from operating
 	active bool
 	// DMA takes 2 cycles to start, so there might be a couple of ticks to wait

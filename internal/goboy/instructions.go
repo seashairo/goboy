@@ -1014,7 +1014,7 @@ func addR8(cpu *CPU, src CpuRegister) {
 	addend := cpu.registers.read(src)
 	result := a + addend
 
-	cpu.registers.write(R_A, uint16(result))
+	cpu.registers.write(R_A, result)
 
 	cpu.registers.setFlags(
 		byte(result) == 0,
@@ -1045,7 +1045,7 @@ func addMR16(cpu *CPU, src CpuRegister) {
 	addend := uint16(cpu.bus.readByte(cpu.registers.read(src)))
 	result := a + addend
 
-	cpu.registers.write(R_A, uint16(result))
+	cpu.registers.write(R_A, result)
 
 	cpu.registers.setFlags(
 		byte(result) == 0,
@@ -1145,7 +1145,7 @@ func sub(cpu *CPU, subtrahend uint16) {
 	cpu.registers.setFlags(
 		result == 0,
 		true,
-		((a & 0x0F) < (subtrahend & 0x0F)),
+		(a&0x0F) < (subtrahend&0x0F),
 		a < subtrahend,
 	)
 }
@@ -1175,8 +1175,8 @@ func sbc(cpu *CPU, subtrahend byte) {
 	cpu.registers.setFlags(
 		result == 0,
 		true,
-		((a^uint16(subtrahend)^uint16((byte(result)&0xFF)))&(1<<4)) != 0,
-		(int(a)-int(carry)-int(subtrahend) < 0),
+		((a^uint16(subtrahend)^uint16(byte(result)&0xFF))&(1<<4)) != 0,
+		int(a)-int(carry)-int(subtrahend) < 0,
 	)
 }
 
