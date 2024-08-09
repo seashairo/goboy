@@ -148,7 +148,7 @@ func (ppu *PPU) handleModeHblank() {
 				if frameTime < TARGET_FRAME_TIME {
 					// todo: this isn't quite right, it's hitting 70 fps, try moving timer
 					// to its own class
-					time.Sleep(time.Duration(TARGET_FRAME_TIME-frameTime+1) * time.Millisecond)
+					time.Sleep(time.Duration(TARGET_FRAME_TIME-frameTime) * time.Millisecond)
 				}
 
 				if currentTime-ppu.startTime > 1000 {

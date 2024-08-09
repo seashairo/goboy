@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const CPU_DEBUG = false
+
 type CPU struct {
 	registers *CpuRegisters
 	bus       *Bus
@@ -67,6 +69,10 @@ func (cpu *CPU) Cycle(mCycles int) {
 }
 
 func (cpu *CPU) debugPrint() {
+	if !CPU_DEBUG {
+		return
+	}
+
 	r := cpu.registers
 
 	out := fmt.Sprintf(
