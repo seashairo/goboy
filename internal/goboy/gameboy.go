@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ROM_PATH = "./data/roms/blargg/01-special.gb"
+const ROM_PATH = "./data/roms/drmario.gb"
 
 // const ROM_PATH = "./data/roms/tetris.gb"
 
@@ -34,9 +34,9 @@ func NewGameBoy() *GameBoy {
 	cartridge := LoadCartridge(ROM_PATH)
 	wram := NewRAM(8192, WORK_RAM_START)
 	hram := NewRAM(127, HIGH_RAM_START)
+	interruptFlagsRegister := NewInterruptRegister(0)
+	io := NewIO(bus, timer, interruptFlagsRegister)
 	interruptEnableRegister := NewInterruptRegister(0)
-	io := NewIO(bus, timer, interruptEnableRegister)
-
 	// And then put it on the bus so everything knows what it has access to
 	bus.Init(cartridge, ppu, wram, hram, io, interruptEnableRegister)
 
