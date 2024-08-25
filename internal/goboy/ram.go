@@ -30,3 +30,33 @@ func (ram *RAM) readByte(address uint16) byte {
 func (ram *RAM) writeByte(address uint16, value byte) {
 	ram.data[address-ram.offset] = value
 }
+
+func (ram *RAM) debugPrint() {
+	const bytesPerRow = 16
+
+	for i := 0; i < len(ram.data); i += bytesPerRow {
+		out := fmt.Sprintf("%04X: ", i+int(ram.offset))
+
+		// Print the hex values
+		for j := 0; j < bytesPerRow && i+j < len(ram.data); j++ {
+			out += fmt.Sprintf("%02X ", ram.data[i+j])
+		}
+
+		// Print spacing between hex values and ASCII characters
+		for j := len(ram.data[i:]); j < bytesPerRow; j++ {
+			out += fmt.Sprint("   ")
+		}
+
+		// Print ASCII characters (if printable)
+		for j := 0; j < bytesPerRow && i+j < len(ram.data); j++ {
+			b := ram.data[i+j]
+			if b >= 32 && b <= 126 { // Printable ASCII range
+				out += fmt.Sprintf("%c", b)
+			} else {
+				out += fmt.Sprintf(".")
+			}
+		}
+
+		fmt.Println(out)
+	}
+}

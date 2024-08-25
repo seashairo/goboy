@@ -175,6 +175,10 @@ func (lcd *LCD) SetLcdControlFlag(flag LcdControlFlag, on bool) {
 	lcd.lcdc = SetBit(lcd.lcdc, byte(flag), on)
 }
 
+func (lcd *LCD) CheckLcdControlFlag(flag LcdControlFlag) bool {
+	return GetBit(lcd.lcdc, byte(flag))
+}
+
 func (lcd *LCD) IsBgwEnabled() bool {
 	return GetBit(lcd.lcdc, byte(BGW_ENABLE))
 }
@@ -224,7 +228,7 @@ func (lcd *LCD) IsLcdEnabled() bool {
 }
 
 func (lcd *LCD) SetLcdStatusFlag(flag LcdStatusFlag, on bool) {
-	lcd.lcdc = SetBit(lcd.stat, byte(flag), on)
+	lcd.stat = SetBit(lcd.stat, byte(flag), on)
 }
 
 func (lcd *LCD) CheckLcdStatusFlag(flag LcdStatusFlag) bool {

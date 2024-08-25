@@ -156,9 +156,35 @@ func (ui *UI) updateTileDebugWindow() {
 }
 
 func (ui *UI) updateLcdWindow() {
-	if ui.previousFrame == ui.gameboy.ppu.currentFrame {
-		return
+	// if ui.previousFrame == ui.gameboy.ppu.currentFrame {
+	// 	return
+	// }
+
+	surface := ui.lcdSurface
+
+	surfaceRect := sdl.Rect{X: 0, Y: 0, W: surface.W, H: surface.H}
+	surface.FillRect(&surfaceRect, 0xFFFF0000)
+
+	for lineNum := int32(0); lineNum < LCD_HEIGHT; lineNum++ {
+		for x := int32(0); x < LCD_WIDTH; x++ {
+			rect := sdl.Rect{
+				X: x * scale,
+				Y: lineNum * scale,
+				W: scale,
+				H: scale,
+			}
+
+			index := x + (lineNum * LCD_WIDTH)
+			pixel := ui.gameboy.bus.io.lcd.bus.ppu.videoBuffer[index]
+
+			surface.FillRect(&rect, pixel)
+		}
 	}
+
+	pixels := surface.Pixels()
+	ui.lcdTexture.Update(&surfaceRect, unsafe.Pointer(&(pixels[0])), int(surface.Pitch))
+	ui.lcdRenderer.Copy(ui.lcdTexture, nil, nil)
+	ui.lcdRenderer.Present()
 }
 
 func (ui *UI) handleEvents() {

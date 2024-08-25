@@ -10,7 +10,29 @@ import (
 
 const ROM_PATH = "./data/roms/drmario.gb"
 
-// const ROM_PATH = "./data/roms/tetris.gb"
+// const ROM_PATH = "./data/roms/dmg-acid2.gb"
+
+// const ROM_PATH = "./data/roms/blargg/01-special.gb"
+
+// const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
+
+// const ROM_PATH = "./data/roms/blargg/03-op sp,hl.gb"
+
+// const ROM_PATH = "./data/roms/blargg/04-op r,imm.gb"
+
+// const ROM_PATH = "./data/roms/blargg/05-op rp.gb"
+
+// const ROM_PATH = "./data/roms/blargg/06-ld r,r.gb"
+
+// const ROM_PATH = "./data/roms/blargg/07-jr,jp,call,ret,rst.gb"
+
+// const ROM_PATH = "./data/roms/blargg/08-misc instrs.gb"
+
+// const ROM_PATH = "./data/roms/blargg/09-op r,r.gb"
+
+// const ROM_PATH = "./data/roms/blargg/10-bit ops.gb"
+
+// const ROM_PATH = "./data/roms/blargg/11-op a,(hl).gb"
 
 type GameBoy struct {
 	running bool
@@ -62,6 +84,10 @@ func (gameboy *GameBoy) Run() {
 		if gameboy.paused {
 			time.Sleep(16 * time.Millisecond)
 			continue
+		}
+
+		if gameboy.cpu.registers.read(R_PC) == 0xC7D2 {
+			// gameboy.ppu.vram.debugPrint()
 		}
 
 		if stepping {

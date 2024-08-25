@@ -37,13 +37,14 @@ func (o OamEntry) Check(flag OamEntryFlag) bool {
 }
 
 type PPU struct {
-	bus  *Bus
-	vram *RAM
-	oam  *RAM
+	bus       *Bus
+	vram      *RAM
+	oam       *RAM
+	pixelFifo *PixelFifo
 
 	currentFrame      uint32
 	scanlineTicks     uint32
-	videoBuffer       [FRAME_BUFFER_SIZE]uint32
+	videoBuffer       *[FRAME_BUFFER_SIZE]uint32
 	previousFrameTime int64
 	startTime         int64
 	frameCount        int64
@@ -51,13 +52,14 @@ type PPU struct {
 
 func NewPPU(bus *Bus) *PPU {
 	return &PPU{
-		bus:  bus,
-		vram: NewRAM(8192, VIDEO_RAM_START),
-		oam:  NewRAM(160, OAM_START),
+		bus:       bus,
+		vram:      NewRAM(8192, VIDEO_RAM_START),
+		oam:       NewRAM(160, OAM_START),
+		pixelFifo: NewPixelFifo(bus),
 
 		currentFrame:      0,
 		scanlineTicks:     0,
-		videoBuffer:       [FRAME_BUFFER_SIZE]uint32{},
+		videoBuffer:       &[FRAME_BUFFER_SIZE]uint32{},
 		previousFrameTime: time.Now().UnixMilli(),
 		startTime:         time.Now().UnixMilli(),
 		frameCount:        0,
@@ -104,12 +106,25 @@ func (ppu *PPU) Tick() {
 func (ppu *PPU) handleModeOam() {
 	if ppu.scanlineTicks >= 80 {
 		ppu.bus.io.lcd.SetMode(LCD_MODE_TRANSFER)
+
+		ppu.pixelFifo.fetchState = FETCH_STATE_TILE
+		ppu.pixelFifo.lineX = 0
+		ppu.pixelFifo.fetchX = 0
+		ppu.pixelFifo.pushedX = 0
+		ppu.pixelFifo.fifoX = 0
 	}
 }
 
 func (ppu *PPU) handleModeTransfer() {
-	if ppu.scanlineTicks >= 80+172 {
+	ppu.pixelFifo.Process()
+
+	if ppu.pixelFifo.pushedX >= LCD_WIDTH {
+		ppu.pixelFifo.Reset()
 		ppu.bus.io.lcd.SetMode(LCD_MODE_HBLANK)
+
+		if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_HBLANK_INTERRUPT) {
+			ppu.bus.interruptEnableRegister.SetInterrupt(INT_LCD, true)
+		}
 	}
 }
 
