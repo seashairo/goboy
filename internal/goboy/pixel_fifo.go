@@ -132,8 +132,8 @@ func (pf *PixelFifo) add() bool {
 	for i := 0; i < 8; i++ {
 		bit := 7 - i
 
-		hi := ((pf.bgwFetchData[1] & (1 << bit)) >> bit) << 1
-		lo := (pf.bgwFetchData[2] & (1 << bit)) >> bit
+		hi := (pf.bgwFetchData[1] & (1 << bit)) >> bit
+		lo := ((pf.bgwFetchData[2] & (1 << bit)) >> bit) << 1
 
 		color := pf.bus.io.lcd.bgColors[hi|lo]
 

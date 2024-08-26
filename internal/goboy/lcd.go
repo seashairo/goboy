@@ -53,7 +53,7 @@ const (
 	OBJ1_ADDRESS uint16 = 0xFF49
 )
 
-var DEFAULT_PALLETTE = [4]uint32{0xFFFFFFFF, 0xFFAAAAAA, 0xFF555555, 0xFF000000}
+var DEFAULT_PALLETTE = [4]uint32{0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000}
 
 type LCD struct {
 	bus *Bus
@@ -260,7 +260,7 @@ func (lcd *LCD) IncrementLy() {
 
 		// If the LCD is requesting LYC interrupts, request the interrupt
 		if lcd.CheckLcdStatusFlag(STAT_LYC_INTERRUPT) {
-			lcd.bus.interruptEnableRegister.SetInterrupt(INT_LCD, true)
+			lcd.bus.io.interrupts.SetInterrupt(INT_LCD, true)
 		}
 	} else {
 		lcd.SetLcdStatusFlag(STAT_LYC_EQUAL, false)

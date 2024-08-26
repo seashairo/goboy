@@ -123,7 +123,7 @@ func (ppu *PPU) handleModeTransfer() {
 		ppu.bus.io.lcd.SetMode(LCD_MODE_HBLANK)
 
 		if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_HBLANK_INTERRUPT) {
-			ppu.bus.interruptEnableRegister.SetInterrupt(INT_LCD, true)
+			ppu.bus.io.interrupts.SetInterrupt(INT_LCD, true)
 		}
 	}
 }
@@ -149,10 +149,10 @@ func (ppu *PPU) handleModeHblank() {
 			// If we're past the end of the screen, it's vblank time
 			ppu.bus.io.lcd.SetMode(LCD_MODE_VBLANK)
 			// The CPU has a specific vblank interrupt
-			ppu.bus.interruptEnableRegister.SetInterrupt(INT_VBLANK, true)
+			ppu.bus.io.interrupts.SetInterrupt(INT_VBLANK, true)
 			// And it the LCD wants, that can also trigger a stat interrupt
 			if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_VBLANK_INTERRUPT) {
-				ppu.bus.interruptEnableRegister.SetInterrupt(INT_LCD, true)
+				ppu.bus.io.interrupts.SetInterrupt(INT_LCD, true)
 			}
 			ppu.currentFrame++
 
