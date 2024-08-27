@@ -16,32 +16,34 @@ type PixelFifo struct {
 
 	data []uint32
 
-	fetchState   FetchState
-	lineX        byte
-	pushedX      byte
-	fetchX       byte
-	bgwFetchData [3]byte
-	oamData      [6]byte
-	mapX         byte
-	mapY         byte
-	tileY        byte
-	fifoX        byte
+	fetchState        FetchState
+	lineX             byte
+	pushedX           byte
+	fetchX            byte
+	bgwFetchData      [3]byte
+	oamFetchData      [6]byte
+	fetchedOamEntries []OamEntry
+	mapX              byte
+	mapY              byte
+	tileY             byte
+	fifoX             byte
 }
 
 func NewPixelFifo(bus *Bus) *PixelFifo {
 	return &PixelFifo{
-		bus:          bus,
-		data:         make([]uint32, 0),
-		fetchState:   FETCH_STATE_TILE,
-		lineX:        0,
-		pushedX:      0,
-		fetchX:       0,
-		bgwFetchData: [3]byte{0, 0, 0},
-		oamData:      [6]byte{0, 0, 0, 0, 0, 0},
-		mapX:         0,
-		mapY:         0,
-		tileY:        0,
-		fifoX:        0,
+		bus:               bus,
+		data:              make([]uint32, 0),
+		fetchState:        FETCH_STATE_TILE,
+		lineX:             0,
+		pushedX:           0,
+		fetchX:            0,
+		bgwFetchData:      [3]byte{0, 0, 0},
+		oamFetchData:      [6]byte{0, 0, 0, 0, 0, 0},
+		fetchedOamEntries: make([]OamEntry, 0),
+		mapX:              0,
+		mapY:              0,
+		tileY:             0,
+		fifoX:             0,
 	}
 }
 
@@ -96,6 +98,8 @@ func (pf *PixelFifo) Fetch() {
 
 	switch pf.fetchState {
 	case FETCH_STATE_TILE:
+		pf.fetchedOamEntries = nil
+
 		if lcd.IsBgwEnabled() {
 			pf.bgwFetchData[0] = pf.bus.readByte(lcd.BgTileMapOffset() + uint16(pf.mapX) + (uint16(pf.mapY) * 32))
 
@@ -104,15 +108,21 @@ func (pf *PixelFifo) Fetch() {
 			}
 		}
 
+		if lcd.IsObjEnabled() && len(pf.bus.ppu.lineSprites) != 0 {
+			pf.loadSpriteTile()
+		}
+
 		pf.fetchX += 8
 		pf.fetchState = FETCH_STATE_DATA_LO
 	case FETCH_STATE_DATA_LO:
 		address := lcd.BgwTileDataOffset() + uint16(pf.bgwFetchData[0])*16 + uint16(pf.tileY)
 		pf.bgwFetchData[1] = pf.bus.readByte(address)
+		pf.loadSpriteData(0)
 		pf.fetchState = FETCH_STATE_DATA_HI
 	case FETCH_STATE_DATA_HI:
 		address := lcd.BgwTileDataOffset() + uint16(pf.bgwFetchData[0])*16 + uint16(pf.tileY) + 1
 		pf.bgwFetchData[2] = pf.bus.readByte(address)
+		pf.loadSpriteData(1)
 		pf.fetchState = FETCH_STATE_SLEEP
 	case FETCH_STATE_SLEEP:
 		pf.fetchState = FETCH_STATE_PUSH
@@ -132,10 +142,19 @@ func (pf *PixelFifo) add() bool {
 	for i := 0; i < 8; i++ {
 		bit := 7 - i
 
-		hi := (pf.bgwFetchData[1] & (1 << bit)) >> bit
-		lo := ((pf.bgwFetchData[2] & (1 << bit)) >> bit) << 1
+		lo := (pf.bgwFetchData[1] & (1 << bit)) >> bit
+		hi := ((pf.bgwFetchData[2] & (1 << bit)) >> bit) << 1
+		colorIndex := hi | lo
 
-		color := pf.bus.io.lcd.bgColors[hi|lo]
+		color := pf.bus.io.lcd.bgColors[colorIndex]
+
+		if !pf.bus.io.lcd.IsBgwEnabled() {
+			color = pf.bus.io.lcd.bgColors[0]
+		}
+
+		if pf.bus.io.lcd.IsObjEnabled() {
+			color = pf.fetchSpritePixels(color, colorIndex)
+		}
 
 		if x > 0 {
 			pf.push(color)
@@ -146,6 +165,92 @@ func (pf *PixelFifo) add() bool {
 	return true
 }
 
+func (pf *PixelFifo) loadSpriteData(offset int) {
+	ly := pf.bus.readByte(LY_ADDRESS)
+	spriteHeight := pf.bus.io.lcd.ObjSize()
+
+	for i := 0; i < len(pf.fetchedOamEntries); i++ {
+		sprite := pf.fetchedOamEntries[i]
+		tileY := (ly + 16 - sprite.y) * 2
+
+		if sprite.Check(OAM_Y_FLIP) {
+			tileY = (spriteHeight*2 - 2) - tileY
+		}
+
+		tileIndex := sprite.tile
+		if spriteHeight == 16 {
+			tileIndex &= 0b11111110
+		}
+
+		address := VIDEO_RAM_START + uint16(tileIndex)*16 + uint16(tileY) + uint16(offset)
+		pf.oamFetchData[(i*2)+offset] = pf.bus.readByte(address)
+	}
+}
+
+func (pf *PixelFifo) loadSpriteTile() {
+	for i := 0; i < len(pf.bus.ppu.lineSprites); i++ {
+		sprite := pf.bus.ppu.lineSprites[i]
+		spriteX := sprite.x - 8 + pf.bus.readByte(SCX_ADDRESS)%8
+
+		if (spriteX >= pf.fetchX && spriteX < pf.fetchX+8) ||
+			((spriteX+8) >= pf.fetchX && (spriteX) < pf.fetchX) {
+			pf.fetchedOamEntries = append(pf.fetchedOamEntries, sprite)
+		}
+
+		if len(pf.fetchedOamEntries) >= 3 {
+			break
+		}
+	}
+}
+
+func (pf *PixelFifo) fetchSpritePixels(bgColor uint32, bgColorIndex byte) uint32 {
+	color := bgColor
+
+	for i := 0; i < len(pf.fetchedOamEntries); i++ {
+		sprite := pf.fetchedOamEntries[i]
+		spriteX := sprite.x - 8 + pf.bus.readByte(SCX_ADDRESS)%8
+
+		if spriteX+8 < pf.fifoX {
+			continue
+		}
+
+		offsetX := pf.fifoX - spriteX
+		if offsetX > 7 {
+			continue
+		}
+
+		bit := 7 - int(offsetX)
+		if sprite.Check(OAM_X_FLIP) {
+			bit = int(offsetX)
+		}
+
+		lo := (pf.oamFetchData[i*2] & (1 << bit)) >> bit
+		hi := ((pf.oamFetchData[i*2+1] & (1 << bit)) >> bit) << 1
+		colorIndex := hi | lo
+
+		// For sprites, if they would use the first entry in the palette they are
+		// instead considered to be transparent so we'll let the buffer keep the BGW
+		// color. The same happens if the sprite gives priority to the background
+		// and the background isn't a blank space
+		if colorIndex == 0 || (sprite.Check(OAM_PRIORITY) && bgColorIndex != 0) {
+			continue
+		}
+
+		// The DMG has two different palettes that could be in use depending on this
+		// flag so we need to make sure we pull the right one
+		color = pf.bus.io.lcd.sp1Colors[colorIndex]
+		if sprite.Check(OAM_DMG_PALETTE) {
+			color = pf.bus.io.lcd.sp2Colors[colorIndex]
+		}
+
+		// Sprites are only mixed if they're transparent, so if we've gotten this
+		// far we take the color and break
+		break
+	}
+
+	return color
+}
+
 func (pf *PixelFifo) Reset() {
-	pf.data = make([]uint32, 0)
+	pf.data = nil
 }

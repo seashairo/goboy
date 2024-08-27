@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// const ROM_PATH = "./data/roms/drmario.gb"
+const ROM_PATH = "./data/roms/drmario.gb"
 
-const ROM_PATH = "./data/roms/dmg-acid2.gb"
+// const ROM_PATH = "./data/roms/dmg-acid2.gb"
 
 // const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
@@ -84,10 +84,6 @@ func (gameboy *GameBoy) Run() {
 		if gameboy.paused {
 			time.Sleep(16 * time.Millisecond)
 			continue
-		}
-
-		if gameboy.cpu.registers.read(R_PC) == 0xC7D2 {
-			// gameboy.ppu.vram.debugPrint()
 		}
 
 		if stepping {

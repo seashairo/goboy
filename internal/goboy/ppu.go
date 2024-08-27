@@ -2,6 +2,7 @@ package goboy
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -39,9 +40,10 @@ func (o OamEntry) Check(flag OamEntryFlag) bool {
 type PPU struct {
 	bus       *Bus
 	vram      *RAM
-	oam       *RAM
+	oam       *[40]OamEntry
 	pixelFifo *PixelFifo
 
+	lineSprites       []OamEntry
 	currentFrame      uint32
 	scanlineTicks     uint32
 	videoBuffer       *[FRAME_BUFFER_SIZE]uint32
@@ -54,12 +56,18 @@ func NewPPU(bus *Bus) *PPU {
 	return &PPU{
 		bus:       bus,
 		vram:      NewRAM(8192, VIDEO_RAM_START),
-		oam:       NewRAM(160, OAM_START),
+		oam:       &[40]OamEntry{},
 		pixelFifo: NewPixelFifo(bus),
 
-		currentFrame:      0,
-		scanlineTicks:     0,
-		videoBuffer:       &[FRAME_BUFFER_SIZE]uint32{},
+		// sprites
+		lineSprites: make([]OamEntry, 40),
+
+		// rendering
+		currentFrame:  0,
+		scanlineTicks: 0,
+		videoBuffer:   &[FRAME_BUFFER_SIZE]uint32{},
+
+		// fps
 		previousFrameTime: time.Now().UnixMilli(),
 		startTime:         time.Now().UnixMilli(),
 		frameCount:        0,
@@ -70,7 +78,18 @@ func (ppu *PPU) readByte(address uint16) byte {
 	if Between(address, VIDEO_RAM_START, VIDEO_RAM_END) {
 		return ppu.vram.readByte(address)
 	} else if Between(address, OAM_START, OAM_END) {
-		return ppu.oam.readByte(address)
+		oamEntry := ppu.getOamEntry(address)
+
+		switch address % 4 {
+		case 0:
+			return oamEntry.y
+		case 1:
+			return oamEntry.x
+		case 2:
+			return oamEntry.tile
+		case 3:
+			return oamEntry.flags
+		}
 	}
 
 	panic("Somehow didn't manage to read a byte")
@@ -81,11 +100,29 @@ func (ppu *PPU) writeByte(address uint16, value byte) {
 		ppu.vram.writeByte(address, value)
 		return
 	} else if Between(address, OAM_START, OAM_END) {
-		ppu.oam.writeByte(address, value)
+		oamEntry := ppu.getOamEntry(address)
+
+		switch address % 4 {
+		case 0:
+			oamEntry.y = value
+		case 1:
+			oamEntry.x = value
+		case 2:
+			oamEntry.tile = value
+		case 3:
+			oamEntry.flags = value
+		}
+
 		return
 	}
 
 	panic(fmt.Sprintf("Somehow didn't manage to write a byte (%4.4X:%2.2X)\n", address, value))
+}
+
+func (ppu *PPU) getOamEntry(address uint16) *OamEntry {
+	offset := (address - OAM_START)
+	oamIndex := offset / 4
+	return &ppu.oam[oamIndex]
 }
 
 func (ppu *PPU) Tick() {
@@ -103,7 +140,53 @@ func (ppu *PPU) Tick() {
 	}
 }
 
+func (ppu *PPU) loadLineSprites() {
+	ppu.lineSprites = nil
+
+	// This is the line we're fetching sprites for
+	ly := ppu.bus.readByte(LY_ADDRESS)
+	spriteHeight := ppu.bus.io.lcd.ObjSize()
+
+	for i := 0; i < len(ppu.oam); i++ {
+		sprite := ppu.oam[i]
+
+		// A sprite is on the line if it starts on or above the scanline, and
+		// finishes below the scanline. The sprite Y coordinates are always offset
+		// by 16 (I don't know why - see https://gbdev.io/pandocs/OAM.html)
+		if sprite.y-16 <= ly && sprite.y-16+spriteHeight > ly {
+			ppu.lineSprites = append(ppu.lineSprites, sprite)
+		}
+	}
+
+	slices.SortFunc(ppu.lineSprites, func(a, b OamEntry) int {
+		if a.x < b.x {
+			return -1
+		}
+
+		if a.x > b.x {
+			return 1
+		}
+
+		return 0
+	})
+
+	// The Game Boy will only render 10 sprites per line, so if we have more than
+	// 10 sprites in the list, we sort them by X position and only keep the first
+	// 10. There is a tie breaker for index, so I might need to revisit this to
+	// make sure it's got the right sprites.
+	if len(ppu.lineSprites) > 10 {
+		ppu.lineSprites = ppu.lineSprites[:10]
+	}
+}
+
 func (ppu *PPU) handleModeOam() {
+	// I don't know when sprite data is actually loaded, but we probably only need
+	// to do it once during OAM phase and not 80 times
+	if ppu.scanlineTicks == 1 {
+		ppu.loadLineSprites()
+	}
+
+	// After 80 ticks on this line, we move to mode 3 and start pushing data
 	if ppu.scanlineTicks >= 80 {
 		ppu.bus.io.lcd.SetMode(LCD_MODE_TRANSFER)
 

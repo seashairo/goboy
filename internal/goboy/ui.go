@@ -114,8 +114,8 @@ func (ui *UI) displayTile(tileNum uint16, xDraw int32, yDraw int32) {
 			// the color ID of each pixel, and the second byte specifies the most
 			// significant bit. In both bytes, bit 7 represents the leftmost pixel,
 			// and bit 0 the rightmost.
-			hi := ((b1 & (1 << bit)) >> bit) << 1
-			lo := (b2 & (1 << bit)) >> bit
+			lo := (b1 & (1 << bit)) >> bit
+			hi := ((b2 & (1 << bit)) >> bit) << 1
 			color := hi | lo
 
 			rect := sdl.Rect{
@@ -156,9 +156,9 @@ func (ui *UI) updateTileDebugWindow() {
 }
 
 func (ui *UI) updateLcdWindow() {
-	// if ui.previousFrame == ui.gameboy.ppu.currentFrame {
-	// 	return
-	// }
+	if ui.previousFrame == ui.gameboy.ppu.currentFrame {
+		return
+	}
 
 	surface := ui.lcdSurface
 

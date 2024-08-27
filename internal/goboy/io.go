@@ -51,7 +51,7 @@ func (io *IO) writeByte(address uint16, value byte) {
 		return
 	}
 
-	fmt.Printf("Writing to %2.2X not supported (IO_REGISTERS)\n", address)
+	// fmt.Printf("Writing to %2.2X not supported (IO_REGISTERS)\n", address)
 }
 
 func (io *IO) readByte(address uint16) byte {
@@ -71,7 +71,7 @@ func (io *IO) readByte(address uint16) byte {
 		return io.lcd.readByte(address)
 	}
 
-	fmt.Printf("Reading from %2.2X not supported (IO_REGISTERS)\n", address)
+	// fmt.Printf("Reading from %2.2X not supported (IO_REGISTERS)\n", address)
 	return 0
 }
 

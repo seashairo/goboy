@@ -42,7 +42,7 @@ func (dma *DMA) Start(addressHi byte) {
 	dma.addressHi = uint16(addressHi)
 	dma.byteIndex = 0
 
-	fmt.Printf("Starting DMA from %4.4X\n", dma.addressHi*100)
+	fmt.Printf("Starting DMA from %4.4X\n", dma.addressHi*0x100)
 }
 
 func (dma *DMA) Tick() {
@@ -55,7 +55,7 @@ func (dma *DMA) Tick() {
 		return
 	}
 
-	srcAddress := (dma.addressHi * 100) + dma.byteIndex
+	srcAddress := (dma.addressHi * 0x100) + dma.byteIndex
 	dstAddress := uint16(OAM_START) + dma.byteIndex
 	dma.bus.writeByte(dstAddress, dma.bus.readByte(srcAddress))
 
