@@ -46,8 +46,8 @@ const (
 	LYC_ADDRESS  uint16 = 0xFF45
 	SCY_ADDRESS  uint16 = 0xFF42
 	SCX_ADDRESS  uint16 = 0xFF43
-	WX_ADDRESS   uint16 = 0xFF4A
-	WY_ADDRESS   uint16 = 0xFF4B
+	WX_ADDRESS   uint16 = 0xFF4B
+	WY_ADDRESS   uint16 = 0xFF4A
 	BGP_ADDRESS  uint16 = 0xFF47
 	OBJ0_ADDRESS uint16 = 0xFF48
 	OBJ1_ADDRESS uint16 = 0xFF49
@@ -251,7 +251,6 @@ func (lcd *LCD) updatePalette(palette *[4]uint32, data byte) {
 }
 
 func (lcd *LCD) IncrementLy() {
-	// Increment LY
 	lcd.ly++
 
 	if lcd.ly == lcd.lyc {
