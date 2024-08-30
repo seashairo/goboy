@@ -216,7 +216,7 @@ func (lcd *LCD) IsWindowEnabled() bool {
 }
 
 func (lcd *LCD) WindowTileMapOffset() uint16 {
-	if GetBit(lcd.lcdc, byte(BGW_TILES)) {
+	if GetBit(lcd.lcdc, byte(WINDOW_TILE_MAP)) {
 		return 0x9C00
 	}
 

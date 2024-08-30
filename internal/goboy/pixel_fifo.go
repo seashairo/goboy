@@ -106,6 +106,8 @@ func (pf *PixelFifo) Fetch() {
 			if lcd.BgwTileDataOffset() == 0x8800 {
 				pf.bgwFetchData[0] += 128
 			}
+
+			pf.loadWindowTile()
 		}
 
 		if lcd.IsObjEnabled() && len(pf.bus.ppu.lineSprites) != 0 {
@@ -199,6 +201,34 @@ func (pf *PixelFifo) loadSpriteTile() {
 
 		if len(pf.fetchedOamEntries) >= 3 {
 			break
+		}
+	}
+}
+
+func (pf *PixelFifo) loadWindowTile() {
+	if !pf.bus.ppu.isWindowVisible() {
+		return
+	}
+
+	wx := pf.bus.readByte(WX_ADDRESS)
+	wy := pf.bus.readByte(WY_ADDRESS)
+	ly := pf.bus.readByte(LY_ADDRESS)
+
+	fetchX := pf.fetchX + 7
+
+	if fetchX >= wx &&
+		fetchX < wx+LCD_WIDTH {
+		if ly >= wy && ly < wy+LCD_HEIGHT {
+			tx := (fetchX - wx) / 8
+			ty := pf.bus.ppu.windowLine / 8
+
+			base := pf.bus.io.lcd.WindowTileMapOffset()
+			address := base + uint16(tx) + uint16(ty)*32
+
+			pf.bgwFetchData[0] = pf.bus.readByte(address)
+			if pf.bus.io.lcd.BgwTileDataOffset() == 0x8800 {
+				pf.bgwFetchData[0] += 128
+			}
 		}
 	}
 }

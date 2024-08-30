@@ -44,6 +44,7 @@ type PPU struct {
 	pixelFifo *PixelFifo
 
 	lineSprites       []OamEntry
+	windowLine        uint32
 	currentFrame      uint32
 	scanlineTicks     uint32
 	videoBuffer       *[FRAME_BUFFER_SIZE]uint32
@@ -61,6 +62,7 @@ func NewPPU(bus *Bus) *PPU {
 
 		// sprites
 		lineSprites: make([]OamEntry, 40),
+		windowLine:  0,
 
 		// rendering
 		currentFrame:  0,
@@ -211,13 +213,32 @@ func (ppu *PPU) handleModeTransfer() {
 	}
 }
 
+func (ppu *PPU) incrementLy() {
+	ly := ppu.bus.readByte(LY_ADDRESS)
+	wy := ppu.bus.readByte(WY_ADDRESS)
+
+	if ppu.isWindowVisible() && ly >= wy && ly < wy+LCD_HEIGHT {
+		ppu.windowLine += 1
+	}
+
+	ppu.bus.io.lcd.IncrementLy()
+}
+
+func (ppu *PPU) isWindowVisible() bool {
+	wx := ppu.bus.readByte(WX_ADDRESS)
+	wy := ppu.bus.readByte(WY_ADDRESS)
+
+	return ppu.bus.io.lcd.IsWindowEnabled() && wx <= 166 && wy < LCD_HEIGHT
+}
+
 func (ppu *PPU) handleModeVblank() {
 	if ppu.scanlineTicks >= DOTS_PER_LINE {
-		ppu.bus.io.lcd.IncrementLy()
+		ppu.incrementLy()
 
-		if ppu.bus.readByte(LY_ADDRESS) > SCANLINES_PER_FRAME {
+		if ppu.bus.readByte(LY_ADDRESS) >= SCANLINES_PER_FRAME {
 			ppu.bus.io.lcd.SetMode(LCD_MODE_OAM)
 			ppu.bus.writeByte(LY_ADDRESS, 0)
+			ppu.windowLine = 0
 		}
 
 		ppu.scanlineTicks = 0
@@ -226,14 +247,14 @@ func (ppu *PPU) handleModeVblank() {
 
 func (ppu *PPU) handleModeHblank() {
 	if ppu.scanlineTicks >= DOTS_PER_LINE {
-		ppu.bus.io.lcd.IncrementLy()
+		ppu.incrementLy()
 
 		if ppu.bus.readByte(LY_ADDRESS) >= LCD_HEIGHT {
 			// If we're past the end of the screen, it's vblank time
 			ppu.bus.io.lcd.SetMode(LCD_MODE_VBLANK)
 			// The CPU has a specific vblank interrupt
 			ppu.bus.io.interrupts.SetInterrupt(INT_VBLANK, true)
-			// And it the LCD wants, that can also trigger a stat interrupt
+			// And if the LCD wants, that can also trigger a stat interrupt
 			if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_VBLANK_INTERRUPT) {
 				ppu.bus.io.interrupts.SetInterrupt(INT_LCD, true)
 			}

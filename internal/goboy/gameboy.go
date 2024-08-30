@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// const ROM_PATH = "./data/roms/drmario.gb"
+const ROM_PATH = "./data/roms/tetris.gb"
 
-const ROM_PATH = "./data/roms/dmg-acid2.gb"
+// const ROM_PATH = "./data/roms/dmg-acid2.gb"
 
 // const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
@@ -106,7 +106,6 @@ func (gameboy *GameBoy) Run() {
 		}
 
 		gameboy.cpu.Tick()
-
 		gameboy.cycles++
 	}
 
