@@ -136,12 +136,12 @@ var OLD_LICENSEE_CODE_MAP = map[byte]string{
 	0x8B: "Bullet-Proof Software2",
 	0x8C: "Vic Tokai",
 	0x8E: "Ape",
-	0x8F: "I’Max",
+	0x8F: "I'Max",
 	0x91: "Chunsoft Co.8",
 	0x92: "Video System",
 	0x93: "Tsubaraya Productions",
 	0x95: "Varie",
-	0x96: "Yonezawa/S’Pal",
+	0x96: "Yonezawa/S'Pal",
 	0x97: "Kemco",
 	0x99: "Arc",
 	0x9A: "Nihon Bussan",
@@ -272,7 +272,7 @@ var NEW_LICENSEE_CODE_MAP = map[string]string{
 	"92": "Video System",
 	"93": "Ocean Software/Acclaim Entertainment",
 	"95": "Varie",
-	"96": "Yonezawa/s’pal",
+	"96": "Yonezawa/s'pal",
 	"97": "Kaneko",
 	"99": "Pack-In-Video",
 	"A4": "Konami (Yu-Gi-Oh!)",
@@ -368,9 +368,14 @@ func LoadCartridge(path string) *Cartridge {
 		[]byte{romData[0x14E], romData[0x14F]},
 	)
 
+	// @see https://gbdev.io/pandocs/The_Cartridge_Header.html#0148--rom-size
+	romSize := (32 * 1024) * (1 << romData[0x0148])
+	buffer := make([]byte, romSize)
+	copy(buffer, romData)
+
 	cartridge := Cartridge{
 		filename: path,
-		romData:  romData,
+		romData:  buffer,
 		header:   header,
 	}
 

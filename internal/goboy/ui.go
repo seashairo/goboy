@@ -190,6 +190,36 @@ func (ui *UI) updateLcdWindow() {
 func (ui *UI) handleEvents() {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch t := event.(type) {
+		case sdl.KeyboardEvent:
+			var b Button = 255
+			switch t.Keysym.Sym {
+			case sdl.K_z:
+				b = JOYPAD_A
+			case sdl.K_x:
+				b = JOYPAD_B
+			case sdl.K_BACKSPACE:
+				b = JOYPAD_SELECT
+			case sdl.K_RETURN:
+				b = JOYPAD_START
+			case sdl.K_RIGHT:
+				b = JOYPAD_RIGHT
+			case sdl.K_LEFT:
+				b = JOYPAD_LEFT
+			case sdl.K_UP:
+				b = JOYPAD_UP
+			case sdl.K_DOWN:
+				b = JOYPAD_DOWN
+			}
+
+			if b == 255 {
+				continue
+			}
+
+			if t.Type == sdl.KEYDOWN {
+				ui.gameboy.bus.io.joypad.Press(b)
+			} else if t.Type == sdl.KEYUP {
+				ui.gameboy.bus.io.joypad.Release(b)
+			}
 		case sdl.WindowEvent:
 			if t.Event == sdl.WINDOWEVENT_CLOSE {
 				ui.running = false

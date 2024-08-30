@@ -1,7 +1,5 @@
 package goboy
 
-import "fmt"
-
 // @see https://gbdev.io/pandocs/OAM_DMA_Transfer.html#ff46--dma-oam-dma-source-address--start
 type DMA struct {
 	bus *Bus
@@ -41,8 +39,6 @@ func (dma *DMA) Start(addressHi byte) {
 	dma.delay = 2
 	dma.addressHi = uint16(addressHi)
 	dma.byteIndex = 0
-
-	fmt.Printf("Starting DMA from %4.4X\n", dma.addressHi*0x100)
 }
 
 func (dma *DMA) Tick() {

@@ -11,21 +11,29 @@ type IO struct {
 	timer      *Timer
 	dma        *DMA
 	lcd        *LCD
+	joypad     *Joypad
 }
 
 func NewIO(bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister) *IO {
 	dma := NewDMA(bus)
 	lcd := NewLCD(bus)
+	joypad := NewJoypad(bus)
 
 	return &IO{
 		interrupts: interruptEnableRegister,
 		timer:      timer,
 		dma:        dma,
 		lcd:        lcd,
+		joypad:     joypad,
 	}
 }
 
 func (io *IO) writeByte(address uint16, value byte) {
+	if address == 0xFF00 {
+		io.joypad.writeByte(address, value)
+		return
+	}
+
 	if address == 0xFF01 {
 		appendSerialToFile(value)
 		return
@@ -55,8 +63,12 @@ func (io *IO) writeByte(address uint16, value byte) {
 }
 
 func (io *IO) readByte(address uint16) byte {
+	if address == 0xFF00 {
+		return io.joypad.readByte(address)
+	}
+
 	if Between(address, 0xFF04, 0xFF07) {
-		io.timer.readByte(address)
+		return io.timer.readByte(address)
 	}
 
 	if address == 0xFF0F {
