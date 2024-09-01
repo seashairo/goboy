@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const DEBUG = false
+
 const ROM_PATH = "./data/roms/drmario.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"

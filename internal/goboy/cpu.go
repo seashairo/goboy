@@ -4,11 +4,9 @@ import (
 	"fmt"
 )
 
-const CPU_DEBUG = false
-
 type CPU struct {
 	gameboy *GameBoy
-	bus     *Bus
+	bus     MemoryBusser
 	timer   *Timer
 
 	registers               *CpuRegisters
@@ -17,7 +15,7 @@ type CPU struct {
 	enablingInterruptMaster bool
 }
 
-func NewCPU(gameboy *GameBoy, bus *Bus, timer *Timer) *CPU {
+func NewCPU(gameboy *GameBoy, bus MemoryBusser, timer *Timer) *CPU {
 	return &CPU{
 		registers:               NewCpuRegisters(),
 		gameboy:                 gameboy,
@@ -61,7 +59,7 @@ func (cpu *CPU) fetchNextOpcode() byte {
 }
 
 func (cpu *CPU) debugPrint() {
-	if !CPU_DEBUG {
+	if !DEBUG {
 		return
 	}
 

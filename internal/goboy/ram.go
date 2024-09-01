@@ -4,7 +4,7 @@ import "fmt"
 
 type RAM struct {
 	// The size of the RAM bank in bytes
-	size uint16
+	size uint32
 
 	// The starting address of the RAM bank (e.g. 0xA000 for WRAM)
 	offset uint16
@@ -13,8 +13,10 @@ type RAM struct {
 	data []byte
 }
 
-func NewRAM(size uint16, offset uint16) *RAM {
-	fmt.Printf("Creating RAM bank with size 0x%4.4X and offset 0x%4.4X\n", size, offset)
+func NewRAM(size uint32, offset uint16) *RAM {
+	if DEBUG {
+		fmt.Printf("Creating RAM bank with size 0x%4.4X and offset 0x%4.4X\n", size, offset)
+	}
 
 	return &RAM{
 		size:   size,
@@ -44,7 +46,7 @@ func (ram *RAM) debugPrint() {
 
 		// Print spacing between hex values and ASCII characters
 		for j := len(ram.data[i:]); j < bytesPerRow; j++ {
-			out += fmt.Sprint("   ")
+			out += "   "
 		}
 
 		// Print ASCII characters (if printable)
@@ -53,7 +55,7 @@ func (ram *RAM) debugPrint() {
 			if b >= 32 && b <= 126 { // Printable ASCII range
 				out += fmt.Sprintf("%c", b)
 			} else {
-				out += fmt.Sprintf(".")
+				out += "."
 			}
 		}
 
