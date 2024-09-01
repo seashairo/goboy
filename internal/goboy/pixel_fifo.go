@@ -13,6 +13,8 @@ const (
 // @see https://gbdev.io/pandocs/pixel_fifo.html
 type PixelFifo struct {
 	bus *Bus
+	ppu *PPU
+	lcd *LCD
 
 	data []uint32
 
@@ -29,9 +31,11 @@ type PixelFifo struct {
 	fifoX             byte
 }
 
-func NewPixelFifo(bus *Bus) *PixelFifo {
+func NewPixelFifo(bus *Bus, ppu *PPU, lcd *LCD) *PixelFifo {
 	return &PixelFifo{
 		bus:               bus,
+		ppu:               ppu,
+		lcd:               lcd,
 		data:              make([]uint32, 0),
 		fetchState:        FETCH_STATE_TILE,
 		lineX:             0,
@@ -72,7 +76,7 @@ func (pf *PixelFifo) Process() {
 	pf.mapY = (pf.bus.readByte(LY_ADDRESS) + pf.bus.readByte(SCY_ADDRESS)) / 8
 	pf.tileY = ((pf.bus.readByte(LY_ADDRESS) + pf.bus.readByte(SCY_ADDRESS)) % 8) * 2
 
-	if pf.bus.ppu.scanlineTicks%2 == 0 {
+	if pf.ppu.scanlineTicks%2 == 0 {
 		pf.Fetch()
 	}
 
@@ -85,7 +89,7 @@ func (pf *PixelFifo) Push() {
 
 		if pf.lineX >= pf.bus.readByte(SCX_ADDRESS)%8 {
 			index := uint32(pf.pushedX) + (uint32(pf.bus.readByte(LY_ADDRESS)) * LCD_WIDTH)
-			pf.bus.ppu.videoBuffer[index] = data
+			pf.ppu.videoBuffer[index] = data
 			pf.pushedX += 1
 		}
 
@@ -94,7 +98,7 @@ func (pf *PixelFifo) Push() {
 }
 
 func (pf *PixelFifo) Fetch() {
-	lcd := pf.bus.io.lcd
+	lcd := pf.lcd
 
 	switch pf.fetchState {
 	case FETCH_STATE_TILE:
@@ -110,7 +114,7 @@ func (pf *PixelFifo) Fetch() {
 			pf.loadWindowTile()
 		}
 
-		if lcd.IsObjEnabled() && len(pf.bus.ppu.lineSprites) != 0 {
+		if lcd.IsObjEnabled() && len(pf.ppu.lineSprites) != 0 {
 			pf.loadSpriteTile()
 		}
 
@@ -148,13 +152,13 @@ func (pf *PixelFifo) add() bool {
 		hi := ((pf.bgwFetchData[2] & (1 << bit)) >> bit) << 1
 		colorIndex := hi | lo
 
-		color := pf.bus.io.lcd.bgColors[colorIndex]
+		color := pf.lcd.bgColors[colorIndex]
 
-		if !pf.bus.io.lcd.IsBgwEnabled() {
-			color = pf.bus.io.lcd.bgColors[0]
+		if !pf.lcd.IsBgwEnabled() {
+			color = pf.lcd.bgColors[0]
 		}
 
-		if pf.bus.io.lcd.IsObjEnabled() {
+		if pf.lcd.IsObjEnabled() {
 			color = pf.fetchSpritePixels(color, colorIndex)
 		}
 
@@ -169,7 +173,7 @@ func (pf *PixelFifo) add() bool {
 
 func (pf *PixelFifo) loadSpriteData(offset int) {
 	ly := pf.bus.readByte(LY_ADDRESS)
-	spriteHeight := pf.bus.io.lcd.ObjSize()
+	spriteHeight := pf.lcd.ObjSize()
 
 	for i := 0; i < len(pf.fetchedOamEntries); i++ {
 		sprite := pf.fetchedOamEntries[i]
@@ -190,8 +194,8 @@ func (pf *PixelFifo) loadSpriteData(offset int) {
 }
 
 func (pf *PixelFifo) loadSpriteTile() {
-	for i := 0; i < len(pf.bus.ppu.lineSprites); i++ {
-		sprite := pf.bus.ppu.lineSprites[i]
+	for i := 0; i < len(pf.ppu.lineSprites); i++ {
+		sprite := pf.ppu.lineSprites[i]
 		spriteX := sprite.x - 8 + pf.bus.readByte(SCX_ADDRESS)%8
 
 		if (spriteX >= pf.fetchX && spriteX < pf.fetchX+8) ||
@@ -206,7 +210,7 @@ func (pf *PixelFifo) loadSpriteTile() {
 }
 
 func (pf *PixelFifo) loadWindowTile() {
-	if !pf.bus.ppu.isWindowVisible() {
+	if !pf.ppu.isWindowVisible() {
 		return
 	}
 
@@ -220,13 +224,13 @@ func (pf *PixelFifo) loadWindowTile() {
 		fetchX < wx+LCD_WIDTH {
 		if ly >= wy && ly < wy+LCD_HEIGHT {
 			tx := (fetchX - wx) / 8
-			ty := pf.bus.ppu.windowLine / 8
+			ty := pf.ppu.windowLine / 8
 
-			base := pf.bus.io.lcd.WindowTileMapOffset()
+			base := pf.lcd.WindowTileMapOffset()
 			address := base + uint16(tx) + uint16(ty)*32
 
 			pf.bgwFetchData[0] = pf.bus.readByte(address)
-			if pf.bus.io.lcd.BgwTileDataOffset() == 0x8800 {
+			if pf.lcd.BgwTileDataOffset() == 0x8800 {
 				pf.bgwFetchData[0] += 128
 			}
 		}
@@ -268,9 +272,9 @@ func (pf *PixelFifo) fetchSpritePixels(bgColor uint32, bgColorIndex byte) uint32
 
 		// The DMG has two different palettes that could be in use depending on this
 		// flag so we need to make sure we pull the right one
-		color = pf.bus.io.lcd.sp1Colors[colorIndex]
+		color = pf.lcd.sp1Colors[colorIndex]
 		if sprite.Check(OAM_DMG_PALETTE) {
-			color = pf.bus.io.lcd.sp2Colors[colorIndex]
+			color = pf.lcd.sp2Colors[colorIndex]
 		}
 
 		// Sprites are only mixed if they're transparent, so if we've gotten this

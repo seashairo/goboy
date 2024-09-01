@@ -2,6 +2,9 @@ package goboy
 
 // @see https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 type Timer struct {
+	// Reference to the GameBoy this timer is a part of. The timer is capable of
+	// requesting interrupts, so it needs access to the main hardware to do so.
+	gameboy *GameBoy
 	// This register is incremented at a rate of 16384Hz (~16779Hz on SGB).
 	// Writing any value to this register resets it to $00. Additionally, this
 	// register is reset when executing the stop instruction, and only begins
@@ -24,12 +27,13 @@ type Timer struct {
 	tac byte
 }
 
-func NewTimer() *Timer {
+func NewTimer(gameboy *GameBoy) *Timer {
 	return &Timer{
-		div:  0x1E,
-		tima: 0,
-		tma:  0,
-		tac:  0xF8,
+		gameboy: gameboy,
+		div:     0x1E,
+		tima:    0,
+		tma:     0,
+		tac:     0xF8,
 	}
 }
 
@@ -55,8 +59,7 @@ func (timer *Timer) Tick(cpu *CPU) {
 
 		if timer.tima == 0xFF {
 			timer.tima = timer.tma
-
-			cpu.bus.io.interrupts.SetInterrupt(INT_TIMER, true)
+			timer.gameboy.RequestInterrupt(INT_TIMER)
 		}
 	}
 }

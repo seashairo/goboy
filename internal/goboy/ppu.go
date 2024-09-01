@@ -38,7 +38,9 @@ func (o OamEntry) Check(flag OamEntryFlag) bool {
 }
 
 type PPU struct {
+	gameboy   *GameBoy
 	bus       *Bus
+	lcd       *LCD
 	vram      *RAM
 	oam       *[40]OamEntry
 	pixelFifo *PixelFifo
@@ -53,12 +55,13 @@ type PPU struct {
 	frameCount        int64
 }
 
-func NewPPU(bus *Bus) *PPU {
-	return &PPU{
-		bus:       bus,
-		vram:      NewRAM(8192, VIDEO_RAM_START),
-		oam:       &[40]OamEntry{},
-		pixelFifo: NewPixelFifo(bus),
+func NewPPU(gameboy *GameBoy, bus *Bus, lcd *LCD) *PPU {
+	ppu := &PPU{
+		gameboy: gameboy,
+		bus:     bus,
+		lcd:     lcd,
+		vram:    NewRAM(8192, VIDEO_RAM_START),
+		oam:     &[40]OamEntry{},
 
 		// sprites
 		lineSprites: make([]OamEntry, 40),
@@ -74,6 +77,10 @@ func NewPPU(bus *Bus) *PPU {
 		startTime:         time.Now().UnixMilli(),
 		frameCount:        0,
 	}
+
+	ppu.pixelFifo = NewPixelFifo(bus, ppu, lcd)
+
+	return ppu
 }
 
 func (ppu *PPU) readByte(address uint16) byte {
@@ -130,7 +137,7 @@ func (ppu *PPU) getOamEntry(address uint16) *OamEntry {
 func (ppu *PPU) Tick() {
 	ppu.scanlineTicks++
 
-	switch ppu.bus.io.lcd.GetMode() {
+	switch ppu.lcd.GetMode() {
 	case LCD_MODE_HBLANK:
 		ppu.handleModeHblank()
 	case LCD_MODE_VBLANK:
@@ -147,7 +154,7 @@ func (ppu *PPU) loadLineSprites() {
 
 	// This is the line we're fetching sprites for
 	ly := ppu.bus.readByte(LY_ADDRESS)
-	spriteHeight := ppu.bus.io.lcd.ObjSize()
+	spriteHeight := ppu.lcd.ObjSize()
 
 	for i := 0; i < len(ppu.oam); i++ {
 		sprite := ppu.oam[i]
@@ -190,7 +197,7 @@ func (ppu *PPU) handleModeOam() {
 
 	// After 80 ticks on this line, we move to mode 3 and start pushing data
 	if ppu.scanlineTicks >= 80 {
-		ppu.bus.io.lcd.SetMode(LCD_MODE_TRANSFER)
+		ppu.lcd.SetMode(LCD_MODE_TRANSFER)
 
 		ppu.pixelFifo.fetchState = FETCH_STATE_TILE
 		ppu.pixelFifo.lineX = 0
@@ -205,10 +212,10 @@ func (ppu *PPU) handleModeTransfer() {
 
 	if ppu.pixelFifo.pushedX >= LCD_WIDTH {
 		ppu.pixelFifo.Reset()
-		ppu.bus.io.lcd.SetMode(LCD_MODE_HBLANK)
+		ppu.lcd.SetMode(LCD_MODE_HBLANK)
 
-		if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_HBLANK_INTERRUPT) {
-			ppu.bus.io.interrupts.SetInterrupt(INT_LCD, true)
+		if ppu.lcd.CheckLcdStatusFlag(STAT_HBLANK_INTERRUPT) {
+			ppu.gameboy.RequestInterrupt(INT_LCD)
 		}
 	}
 }
@@ -221,14 +228,14 @@ func (ppu *PPU) incrementLy() {
 		ppu.windowLine += 1
 	}
 
-	ppu.bus.io.lcd.IncrementLy()
+	ppu.lcd.IncrementLy()
 }
 
 func (ppu *PPU) isWindowVisible() bool {
 	wx := ppu.bus.readByte(WX_ADDRESS)
 	wy := ppu.bus.readByte(WY_ADDRESS)
 
-	return ppu.bus.io.lcd.IsWindowEnabled() && wx <= 166 && wy < LCD_HEIGHT
+	return ppu.lcd.IsWindowEnabled() && wx <= 166 && wy < LCD_HEIGHT
 }
 
 func (ppu *PPU) handleModeVblank() {
@@ -236,7 +243,7 @@ func (ppu *PPU) handleModeVblank() {
 		ppu.incrementLy()
 
 		if ppu.bus.readByte(LY_ADDRESS) >= SCANLINES_PER_FRAME {
-			ppu.bus.io.lcd.SetMode(LCD_MODE_OAM)
+			ppu.lcd.SetMode(LCD_MODE_OAM)
 			ppu.bus.writeByte(LY_ADDRESS, 0)
 			ppu.windowLine = 0
 		}
@@ -251,12 +258,12 @@ func (ppu *PPU) handleModeHblank() {
 
 		if ppu.bus.readByte(LY_ADDRESS) >= LCD_HEIGHT {
 			// If we're past the end of the screen, it's vblank time
-			ppu.bus.io.lcd.SetMode(LCD_MODE_VBLANK)
+			ppu.lcd.SetMode(LCD_MODE_VBLANK)
 			// The CPU has a specific vblank interrupt
-			ppu.bus.io.interrupts.SetInterrupt(INT_VBLANK, true)
+			ppu.gameboy.RequestInterrupt(INT_VBLANK)
 			// And if the LCD wants, that can also trigger a stat interrupt
-			if ppu.bus.io.lcd.CheckLcdStatusFlag(STAT_VBLANK_INTERRUPT) {
-				ppu.bus.io.interrupts.SetInterrupt(INT_LCD, true)
+			if ppu.lcd.CheckLcdStatusFlag(STAT_VBLANK_INTERRUPT) {
+				ppu.gameboy.RequestInterrupt(INT_LCD)
 			}
 			ppu.currentFrame++
 
@@ -281,7 +288,7 @@ func (ppu *PPU) handleModeHblank() {
 				ppu.previousFrameTime = currentTime
 			}
 		} else {
-			ppu.bus.io.lcd.SetMode(LCD_MODE_OAM)
+			ppu.lcd.SetMode(LCD_MODE_OAM)
 		}
 
 		ppu.scanlineTicks = 0

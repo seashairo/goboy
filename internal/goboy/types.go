@@ -10,3 +10,8 @@ func Uint16ToBytes(value uint16) (byte, byte) {
 
 	return hi, lo
 }
+
+type MemoryBusser interface {
+	readByte(address uint16) byte
+	writeByte(address uint16, value byte)
+}

@@ -175,7 +175,7 @@ func (ui *UI) updateLcdWindow() {
 			}
 
 			index := x + (lineNum * LCD_WIDTH)
-			pixel := ui.gameboy.bus.io.lcd.bus.ppu.videoBuffer[index]
+			pixel := ui.gameboy.ppu.videoBuffer[index]
 
 			surface.FillRect(&rect, pixel)
 		}
@@ -216,9 +216,9 @@ func (ui *UI) handleEvents() {
 			}
 
 			if t.Type == sdl.KEYDOWN {
-				ui.gameboy.bus.io.joypad.Press(b)
+				ui.gameboy.Press(b)
 			} else if t.Type == sdl.KEYUP {
-				ui.gameboy.bus.io.joypad.Release(b)
+				ui.gameboy.Release(b)
 			}
 		case sdl.WindowEvent:
 			if t.Event == sdl.WINDOWEVENT_CLOSE {

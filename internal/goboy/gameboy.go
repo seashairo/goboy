@@ -32,6 +32,8 @@ const ROM_PATH = "./data/roms/drmario.gb"
 // const ROM_PATH = "./data/roms/blargg/11-op a,(hl).gb"
 
 type GameBoy struct {
+	*Joypad
+
 	running bool
 	paused  bool
 	cycles  uint64
@@ -39,36 +41,44 @@ type GameBoy struct {
 	cpu   *CPU
 	ppu   *PPU
 	timer *Timer
-	bus   *Bus
+	bus   MemoryBusser
+	io    *IO
 }
 
 func NewGameBoy() *GameBoy {
+	gameboy := &GameBoy{
+		running: false,
+		paused:  false,
+		cycles:  0,
+	}
+
 	bus := &Bus{}
+	lcd := NewLCD(gameboy, bus)
 
 	// Initialize all the Game Boy hardware
-	timer := NewTimer()
-	cpu := NewCPU(bus, timer)
-	ppu := NewPPU(bus)
+	timer := NewTimer(gameboy)
+	cpu := NewCPU(gameboy, bus, timer)
+	ppu := NewPPU(gameboy, bus, lcd)
 
 	cartridge := LoadCartridge(ROM_PATH)
 	wram := NewRAM(8192, WORK_RAM_START)
 	hram := NewRAM(127, HIGH_RAM_START)
 	interruptFlagsRegister := NewInterruptRegister(0)
-	io := NewIO(bus, timer, interruptFlagsRegister)
+	joypad := NewJoypad(bus)
+
+	io := NewIO(gameboy, bus, timer, interruptFlagsRegister, lcd, joypad)
 	interruptEnableRegister := NewInterruptRegister(0)
 	// And then put it on the bus so everything knows what it has access to
 	bus.Init(cartridge, ppu, wram, hram, io, interruptEnableRegister)
 
-	return &GameBoy{
-		running: false,
-		paused:  false,
-		cycles:  0,
+	gameboy.cpu = cpu
+	gameboy.timer = timer
+	gameboy.bus = bus
+	gameboy.ppu = ppu
+	gameboy.io = io
+	gameboy.Joypad = joypad
 
-		cpu:   cpu,
-		timer: timer,
-		bus:   bus,
-		ppu:   ppu,
-	}
+	return gameboy
 }
 
 func (gameboy *GameBoy) Run() {
@@ -86,6 +96,23 @@ func (gameboy *GameBoy) Run() {
 	}
 
 	fmt.Println("GameBoy terminating")
+}
+
+func (gameboy *GameBoy) RequestInterrupt(kind InterruptKind) {
+	gameboy.io.interrupts.SetInterrupt(kind, true)
+}
+
+func (gameboy *GameBoy) ClearInterrupt(kind InterruptKind) {
+	gameboy.io.interrupts.SetInterrupt(kind, false)
+}
+
+func (gameboy *GameBoy) Cycle(mCycles int) {
+	tCycles := mCycles * 4
+	for i := 0; i < tCycles; i++ {
+		gameboy.timer.Tick(gameboy.cpu)
+		gameboy.io.dma.Tick()
+		gameboy.ppu.Tick()
+	}
 }
 
 func (gameboy *GameBoy) Stop() {

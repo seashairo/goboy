@@ -56,7 +56,8 @@ const (
 var DEFAULT_PALLETTE = [4]uint32{0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000}
 
 type LCD struct {
-	bus *Bus
+	gameboy *GameBoy
+	bus     *Bus
 
 	// @see https://gbdev.io/pandocs/LCDC.html
 	lcdc byte // 0xFF40
@@ -79,8 +80,9 @@ type LCD struct {
 	sp2Colors [4]uint32
 }
 
-func NewLCD(bus *Bus) *LCD {
+func NewLCD(gameboy *GameBoy, bus *Bus) *LCD {
 	return &LCD{
+		gameboy:   gameboy,
 		bus:       bus,
 		lcdc:      0x91,
 		stat:      0,
@@ -259,7 +261,7 @@ func (lcd *LCD) IncrementLy() {
 
 		// If the LCD is requesting LYC interrupts, request the interrupt
 		if lcd.CheckLcdStatusFlag(STAT_LYC_INTERRUPT) {
-			lcd.bus.io.interrupts.SetInterrupt(INT_LCD, true)
+			lcd.gameboy.RequestInterrupt(INT_LCD)
 		}
 	} else {
 		lcd.SetLcdStatusFlag(STAT_LYC_EQUAL, false)

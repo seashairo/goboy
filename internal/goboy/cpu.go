@@ -7,18 +7,20 @@ import (
 const CPU_DEBUG = false
 
 type CPU struct {
-	registers *CpuRegisters
-	bus       *Bus
-	timer     *Timer
+	gameboy *GameBoy
+	bus     *Bus
+	timer   *Timer
 
+	registers               *CpuRegisters
 	halted                  bool
 	interruptMasterEnabled  bool
 	enablingInterruptMaster bool
 }
 
-func NewCPU(bus *Bus, timer *Timer) *CPU {
+func NewCPU(gameboy *GameBoy, bus *Bus, timer *Timer) *CPU {
 	return &CPU{
 		registers:               NewCpuRegisters(),
+		gameboy:                 gameboy,
 		bus:                     bus,
 		timer:                   timer,
 		halted:                  false,
@@ -29,8 +31,8 @@ func NewCPU(bus *Bus, timer *Timer) *CPU {
 
 func (cpu *CPU) Tick() {
 	if cpu.halted {
-		cpu.Cycle(1)
-		if cpu.bus.io.interrupts.readByte() != 0 {
+		cpu.gameboy.Cycle(1)
+		if cpu.bus.readByte(INTERRUPT_FLAGS_REGISTER_ADDRESS) != 0 {
 			cpu.halted = false
 		}
 	} else {
@@ -56,16 +58,6 @@ func (cpu *CPU) fetchNextOpcode() byte {
 	cpu.registers.write(R_PC, pc+1)
 
 	return opcode
-}
-
-func (cpu *CPU) Cycle(mCycles int) {
-	tCycles := mCycles * 4
-	for i := 0; i < tCycles; i++ {
-		// todo: this method should be at gameboy level, not cpu level
-		cpu.timer.Tick(cpu)
-		cpu.bus.io.dma.Tick()
-		cpu.bus.ppu.Tick()
-	}
 }
 
 func (cpu *CPU) debugPrint() {

@@ -53,8 +53,8 @@ func (cpu *CPU) handleInterrupts() {
 }
 
 func (cpu *CPU) checkInterrupt(kind InterruptKind) bool {
-	interruptFlags := cpu.bus.io.interrupts.readByte()
-	ieRegister := cpu.bus.interruptEnableRegister.readByte()
+	interruptFlags := cpu.bus.readByte(INTERRUPT_FLAGS_REGISTER_ADDRESS)
+	ieRegister := cpu.bus.readByte(INTERRUPT_ENABLE_REGISTER_ADDRESS)
 
 	interruptFlagged := interruptFlags&(1<<kind) != 0
 	interruptEnabled := ieRegister&(1<<kind) != 0
@@ -68,7 +68,7 @@ func (cpu *CPU) handleInterrupt(kind InterruptKind, address uint16) bool {
 	}
 
 	push(cpu, R_PC)
-	cpu.bus.io.interrupts.SetInterrupt(kind, false)
+	cpu.gameboy.ClearInterrupt(kind)
 	cpu.interruptMasterEnabled = false
 	cpu.registers.write(R_PC, address)
 

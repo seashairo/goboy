@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+const INTERRUPT_FLAGS_REGISTER_ADDRESS = 0xFF0F
+
 type IO struct {
 	interrupts *InterruptRegister
 	timer      *Timer
@@ -14,10 +16,8 @@ type IO struct {
 	joypad     *Joypad
 }
 
-func NewIO(bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister) *IO {
+func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister, lcd *LCD, joypad *Joypad) *IO {
 	dma := NewDMA(bus)
-	lcd := NewLCD(bus)
-	joypad := NewJoypad(bus)
 
 	return &IO{
 		interrupts: interruptEnableRegister,
