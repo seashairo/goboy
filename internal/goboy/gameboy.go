@@ -7,9 +7,9 @@ import (
 
 const DEBUG = false
 
-const ROM_PATH = "./data/roms/alleyway.gb"
+// const ROM_PATH = "./data/roms/alleyway.gb"
 
-// const ROM_PATH = "./data/roms/drmario.gb"
+const ROM_PATH = "./data/roms/drmario.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"
 
@@ -38,7 +38,7 @@ const ROM_PATH = "./data/roms/alleyway.gb"
 // const ROM_PATH = "./data/roms/blargg/11-op a,(hl).gb"
 
 type GameBoy struct {
-	*Joypad
+	joypad *Joypad
 
 	running bool
 	paused  bool
@@ -83,7 +83,7 @@ func NewGameBoy() *GameBoy {
 	gameboy.bus = bus
 	gameboy.ppu = ppu
 	gameboy.io = io
-	gameboy.Joypad = joypad
+	gameboy.joypad = joypad
 
 	return gameboy
 }
@@ -111,6 +111,14 @@ func (gameboy *GameBoy) RequestInterrupt(kind InterruptKind) {
 
 func (gameboy *GameBoy) ClearInterrupt(kind InterruptKind) {
 	gameboy.io.interrupts.SetInterrupt(kind, false)
+}
+
+func (gameboy *GameBoy) Press(button Button) {
+	gameboy.joypad.Press(button)
+}
+
+func (gameboy *GameBoy) Release(button Button) {
+	gameboy.joypad.Release(button)
 }
 
 func (gameboy *GameBoy) Cycle(mCycles int) {

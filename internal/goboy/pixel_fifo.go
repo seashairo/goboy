@@ -220,8 +220,11 @@ func (pf *PixelFifo) loadWindowTile() {
 
 	fetchX := pf.fetchX + 7
 
+	// Important to cast this because wx+LCD_WIDTH can very easily overflow a byte
+	upperBound := uint16(wx) + LCD_WIDTH
+
 	if fetchX >= wx &&
-		fetchX < wx+LCD_WIDTH {
+		uint16(fetchX) < upperBound {
 		if ly >= wy && ly < wy+LCD_HEIGHT {
 			tx := (fetchX - wx) / 8
 			ty := pf.ppu.windowLine / 8

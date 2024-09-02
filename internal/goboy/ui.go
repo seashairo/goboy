@@ -32,7 +32,7 @@ type UI struct {
 	tileDebugSurface  *sdl.Surface
 }
 
-func NewUI(gameboy *GameBoy) UI {
+func NewUI(gameboy *GameBoy) *UI {
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
@@ -44,6 +44,7 @@ func NewUI(gameboy *GameBoy) UI {
 		panic(err)
 	}
 	lcdWindow.SetTitle("GoBoy")
+	lcdWindow.SetPosition(0, 32)
 
 	lcdSurface, err := lcdWindow.GetSurface()
 	if err != nil {
@@ -70,14 +71,14 @@ func NewUI(gameboy *GameBoy) UI {
 	}
 
 	x, y := lcdWindow.GetPosition()
-	tileDebugWindow.SetPosition(x+lcdWidth, y)
+	tileDebugWindow.SetPosition(x, y+lcdHeight+32)
 	tileDebugSurface, err := tileDebugWindow.GetSurface()
 	if err != nil {
 		panic(err)
 	}
 	tileDebugSurface.FillRect(nil, 0)
 
-	return UI{
+	return &UI{
 		running: true,
 		gameboy: gameboy,
 
@@ -184,6 +185,16 @@ func (ui *UI) updateLcdWindow() {
 	pixels := surface.Pixels()
 	ui.lcdTexture.Update(&surfaceRect, unsafe.Pointer(&(pixels[0])), int(surface.Pitch))
 	ui.lcdRenderer.Copy(ui.lcdTexture, nil, nil)
+
+	// ui.lcdRenderer.SetDrawColor(0, 0, 255, 255)
+	// windowRect2 := sdl.Rect{
+	// 	X: int32(ui.gameboy.bus.readByte(LCD_WX)) * scale,
+	// 	Y: int32(ui.gameboy.bus.readByte(LCD_WY)) * scale,
+	// 	W: 256 * scale,
+	// 	H: 256 * scale,
+	// }
+	// ui.lcdRenderer.DrawRect(&windowRect2)
+
 	ui.lcdRenderer.Present()
 }
 
