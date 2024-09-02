@@ -1,12 +1,8 @@
 package goboy
 
-import (
-	"encoding/hex"
-	"fmt"
-	"os"
+const (
+	IO_IF = 0xFF0F
 )
-
-const INTERRUPT_FLAGS_REGISTER_ADDRESS = 0xFF0F
 
 type IO struct {
 	interrupts *InterruptRegister
@@ -14,10 +10,12 @@ type IO struct {
 	dma        *DMA
 	lcd        *LCD
 	joypad     *Joypad
+	serial     *Serial
 }
 
 func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister, lcd *LCD, joypad *Joypad) *IO {
 	dma := NewDMA(bus)
+	serial := NewSerial(gameboy)
 
 	return &IO{
 		interrupts: interruptEnableRegister,
@@ -25,36 +23,37 @@ func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *In
 		dma:        dma,
 		lcd:        lcd,
 		joypad:     joypad,
+		serial:     serial,
 	}
 }
 
 func (io *IO) writeByte(address uint16, value byte) {
-	if address == 0xFF00 {
+	if address == IO_JOYP {
 		io.joypad.writeByte(address, value)
 		return
 	}
 
-	if address == 0xFF01 {
-		appendSerialToFile(value)
+	if Between(address, SERIAL_SB, SERIAL_SC) {
+		io.serial.writeByte(address, value)
 		return
 	}
 
-	if Between(address, 0xFF04, 0xFF07) {
+	if Between(address, TIMER_DIV, TIMER_TAC) {
 		io.timer.writeByte(address, value)
 		return
 	}
 
-	if address == 0xFF0F {
+	if address == IO_IF {
 		io.interrupts.writeByte(value)
 		return
 	}
 
-	if address == 0xFF46 {
+	if address == IO_DMA {
 		io.dma.writeByte(address, value)
 		return
 	}
 
-	if Between(address, 0xFF40, 0xFF4B) {
+	if Between(address, LCD_LCDC, LCD_WX) {
 		io.lcd.writeByte(address, value)
 		return
 	}
@@ -63,44 +62,30 @@ func (io *IO) writeByte(address uint16, value byte) {
 }
 
 func (io *IO) readByte(address uint16) byte {
-	if address == 0xFF00 {
+	if address == IO_JOYP {
 		return io.joypad.readByte(address)
 	}
 
-	if Between(address, 0xFF04, 0xFF07) {
+	if Between(address, SERIAL_SB, SERIAL_SC) {
+		return io.serial.readByte(address)
+	}
+
+	if Between(address, TIMER_DIV, TIMER_TAC) {
 		return io.timer.readByte(address)
 	}
 
-	if address == 0xFF0F {
+	if address == IO_IF {
 		return io.interrupts.readByte()
 	}
 
-	if address == 0xFF46 {
+	if address == IO_DMA {
 		return io.dma.readByte(address)
 	}
 
-	if Between(address, 0xFF40, 0xFF4B) {
+	if Between(address, LCD_LCDC, LCD_WX) {
 		return io.lcd.readByte(address)
 	}
 
 	// fmt.Printf("Reading from %2.2X not supported (IO_REGISTERS)\n", address)
 	return 0
-}
-
-func appendSerialToFile(value byte) {
-	f, err := os.OpenFile("serial.out", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
-
-	defer f.Close()
-
-	bs, err := hex.DecodeString(fmt.Sprintf("%2.2X", value))
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err = f.WriteString(string(bs)); err != nil {
-		panic(err)
-	}
 }

@@ -72,9 +72,9 @@ func (pf *PixelFifo) SetState(state FetchState) {
 }
 
 func (pf *PixelFifo) Process() {
-	pf.mapX = (pf.fetchX + pf.bus.readByte(SCX_ADDRESS)) / 8
-	pf.mapY = (pf.bus.readByte(LY_ADDRESS) + pf.bus.readByte(SCY_ADDRESS)) / 8
-	pf.tileY = ((pf.bus.readByte(LY_ADDRESS) + pf.bus.readByte(SCY_ADDRESS)) % 8) * 2
+	pf.mapX = (pf.fetchX + pf.bus.readByte(LCD_SCX)) / 8
+	pf.mapY = (pf.bus.readByte(LCD_LY) + pf.bus.readByte(LCD_SCY)) / 8
+	pf.tileY = ((pf.bus.readByte(LCD_LY) + pf.bus.readByte(LCD_SCY)) % 8) * 2
 
 	if pf.ppu.scanlineTicks%2 == 0 {
 		pf.Fetch()
@@ -87,8 +87,8 @@ func (pf *PixelFifo) Push() {
 	if len(pf.data) > 8 {
 		data := pf.pop()
 
-		if pf.lineX >= pf.bus.readByte(SCX_ADDRESS)%8 {
-			index := uint32(pf.pushedX) + (uint32(pf.bus.readByte(LY_ADDRESS)) * LCD_WIDTH)
+		if pf.lineX >= pf.bus.readByte(LCD_SCX)%8 {
+			index := uint32(pf.pushedX) + (uint32(pf.bus.readByte(LCD_LY)) * LCD_WIDTH)
 			pf.ppu.videoBuffer[index] = data
 			pf.pushedX += 1
 		}
@@ -144,7 +144,7 @@ func (pf *PixelFifo) add() bool {
 		return false
 	}
 
-	x := pf.fetchX - (pf.bus.readByte(SCX_ADDRESS) % 8)
+	x := pf.fetchX - (pf.bus.readByte(LCD_SCX) % 8)
 	for i := 0; i < 8; i++ {
 		bit := 7 - i
 
@@ -172,7 +172,7 @@ func (pf *PixelFifo) add() bool {
 }
 
 func (pf *PixelFifo) loadSpriteData(offset int) {
-	ly := pf.bus.readByte(LY_ADDRESS)
+	ly := pf.bus.readByte(LCD_LY)
 	spriteHeight := pf.lcd.ObjSize()
 
 	for i := 0; i < len(pf.fetchedOamEntries); i++ {
@@ -196,7 +196,7 @@ func (pf *PixelFifo) loadSpriteData(offset int) {
 func (pf *PixelFifo) loadSpriteTile() {
 	for i := 0; i < len(pf.ppu.lineSprites); i++ {
 		sprite := pf.ppu.lineSprites[i]
-		spriteX := sprite.x - 8 + pf.bus.readByte(SCX_ADDRESS)%8
+		spriteX := sprite.x - 8 + pf.bus.readByte(LCD_SCX)%8
 
 		if (spriteX >= pf.fetchX && spriteX < pf.fetchX+8) ||
 			((spriteX+8) >= pf.fetchX && (spriteX) < pf.fetchX) {
@@ -214,9 +214,9 @@ func (pf *PixelFifo) loadWindowTile() {
 		return
 	}
 
-	wx := pf.bus.readByte(WX_ADDRESS)
-	wy := pf.bus.readByte(WY_ADDRESS)
-	ly := pf.bus.readByte(LY_ADDRESS)
+	wx := pf.bus.readByte(LCD_WX)
+	wy := pf.bus.readByte(LCD_WY)
+	ly := pf.bus.readByte(LCD_LY)
 
 	fetchX := pf.fetchX + 7
 
@@ -242,7 +242,7 @@ func (pf *PixelFifo) fetchSpritePixels(bgColor uint32, bgColorIndex byte) uint32
 
 	for i := 0; i < len(pf.fetchedOamEntries); i++ {
 		sprite := pf.fetchedOamEntries[i]
-		spriteX := sprite.x - 8 + pf.bus.readByte(SCX_ADDRESS)%8
+		spriteX := sprite.x - 8 + pf.bus.readByte(LCD_SCX)%8
 
 		if spriteX+8 < pf.fifoX {
 			continue

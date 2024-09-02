@@ -53,8 +53,8 @@ func (cpu *CPU) handleInterrupts() {
 }
 
 func (cpu *CPU) checkInterrupt(kind InterruptKind) bool {
-	interruptFlags := cpu.bus.readByte(INTERRUPT_FLAGS_REGISTER_ADDRESS)
-	ieRegister := cpu.bus.readByte(INTERRUPT_ENABLE_REGISTER_ADDRESS)
+	interruptFlags := cpu.bus.readByte(IO_IF)
+	ieRegister := cpu.bus.readByte(INTERRUPT_ENABLE_REGISTER_START)
 
 	interruptFlagged := GetBit(interruptFlags, byte(kind))
 	interruptEnabled := GetBit(ieRegister, byte(kind))

@@ -49,7 +49,7 @@ const (
 	HIGH_RAM_END   = 0xFFFE
 
 	// 0xFFFF - 0xFFFF : Interrupt Enable Register
-	INTERRUPT_ENABLE_REGISTER_ADDRESS = 0xFFFF
+	INTERRUPT_ENABLE_REGISTER_START = 0xFFFF
 )
 
 type Bus struct {

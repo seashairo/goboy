@@ -153,7 +153,7 @@ func (ppu *PPU) loadLineSprites() {
 	ppu.lineSprites = nil
 
 	// This is the line we're fetching sprites for
-	ly := ppu.bus.readByte(LY_ADDRESS)
+	ly := ppu.bus.readByte(LCD_LY)
 	spriteHeight := ppu.lcd.ObjSize()
 
 	for i := 0; i < len(ppu.oam); i++ {
@@ -221,8 +221,8 @@ func (ppu *PPU) handleModeTransfer() {
 }
 
 func (ppu *PPU) incrementLy() {
-	ly := ppu.bus.readByte(LY_ADDRESS)
-	wy := ppu.bus.readByte(WY_ADDRESS)
+	ly := ppu.bus.readByte(LCD_LY)
+	wy := ppu.bus.readByte(LCD_WY)
 
 	if ppu.isWindowVisible() && ly >= wy && ly < wy+LCD_HEIGHT {
 		ppu.windowLine += 1
@@ -232,8 +232,8 @@ func (ppu *PPU) incrementLy() {
 }
 
 func (ppu *PPU) isWindowVisible() bool {
-	wx := ppu.bus.readByte(WX_ADDRESS)
-	wy := ppu.bus.readByte(WY_ADDRESS)
+	wx := ppu.bus.readByte(LCD_WX)
+	wy := ppu.bus.readByte(LCD_WY)
 
 	return ppu.lcd.IsWindowEnabled() && wx <= 166 && wy < LCD_HEIGHT
 }
@@ -242,9 +242,9 @@ func (ppu *PPU) handleModeVblank() {
 	if ppu.scanlineTicks >= DOTS_PER_LINE {
 		ppu.incrementLy()
 
-		if ppu.bus.readByte(LY_ADDRESS) >= SCANLINES_PER_FRAME {
+		if ppu.bus.readByte(LCD_LY) >= SCANLINES_PER_FRAME {
 			ppu.lcd.SetMode(LCD_MODE_OAM)
-			ppu.bus.writeByte(LY_ADDRESS, 0)
+			ppu.bus.writeByte(LCD_LY, 0)
 			ppu.windowLine = 0
 		}
 
@@ -256,7 +256,7 @@ func (ppu *PPU) handleModeHblank() {
 	if ppu.scanlineTicks >= DOTS_PER_LINE {
 		ppu.incrementLy()
 
-		if ppu.bus.readByte(LY_ADDRESS) >= LCD_HEIGHT {
+		if ppu.bus.readByte(LCD_LY) >= LCD_HEIGHT {
 			// If we're past the end of the screen, it's vblank time
 			ppu.lcd.SetMode(LCD_MODE_VBLANK)
 			// The CPU has a specific vblank interrupt

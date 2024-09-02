@@ -16,6 +16,8 @@ const (
 const JOYPAD_SELECT_D_PAD_BIT = 4
 const JOYPAD_SELECT_BUTTONS_BIT = 5
 
+const IO_JOYP = 0xFF00
+
 // @see https://gbdev.io/pandocs/Joypad_Input.html#ff00--p1joyp-joypad
 type Joypad struct {
 	gameboy *GameBoy

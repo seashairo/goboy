@@ -7,7 +7,6 @@ import (
 type CPU struct {
 	gameboy *GameBoy
 	bus     MemoryBusser
-	timer   *Timer
 
 	registers               *CpuRegisters
 	halted                  bool
@@ -15,12 +14,11 @@ type CPU struct {
 	enablingInterruptMaster bool
 }
 
-func NewCPU(gameboy *GameBoy, bus MemoryBusser, timer *Timer) *CPU {
+func NewCPU(gameboy *GameBoy, bus MemoryBusser) *CPU {
 	return &CPU{
 		registers:               NewCpuRegisters(),
 		gameboy:                 gameboy,
 		bus:                     bus,
-		timer:                   timer,
 		halted:                  false,
 		interruptMasterEnabled:  false,
 		enablingInterruptMaster: false,
@@ -30,7 +28,7 @@ func NewCPU(gameboy *GameBoy, bus MemoryBusser, timer *Timer) *CPU {
 func (cpu *CPU) Tick() {
 	if cpu.halted {
 		cpu.gameboy.Cycle(1)
-		if cpu.bus.readByte(INTERRUPT_FLAGS_REGISTER_ADDRESS) != 0 {
+		if cpu.bus.readByte(IO_IF) != 0 {
 			cpu.halted = false
 		}
 	} else {

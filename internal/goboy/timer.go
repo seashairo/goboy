@@ -1,5 +1,12 @@
 package goboy
 
+const (
+	TIMER_DIV  = 0xFF04
+	TIMER_TIMA = 0xFF05
+	TIMER_TMA  = 0xFF06
+	TIMER_TAC  = 0xFF07
+)
+
 // @see https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 type Timer struct {
 	// Reference to the GameBoy this timer is a part of. The timer is capable of
@@ -8,8 +15,10 @@ type Timer struct {
 	// This register is incremented at a rate of 16384Hz (~16779Hz on SGB).
 	// Writing any value to this register resets it to $00. Additionally, this
 	// register is reset when executing the stop instruction, and only begins
-	// ticking again once stop mode ends.
-	div byte
+	// ticking again once stop mode ends. DIV is the upper 8 bits of an internal
+	// 16 bit register which
+	sysclk uint16
+	div    byte
 	// This timer is incremented at the clock frequency specified by the TAC
 	// register ($FF07). When the value overflows (exceeds $FF) it is reset to the
 	// value specified in TMA (FF06) and an interrupt is requested
@@ -31,7 +40,7 @@ type Timer struct {
 	timerBit byte
 }
 
-// Map of tac lo bits to the bit that needs to roll over for TIMA to be
+// Map of TAC lo bits to the bit that needs to roll over for TIMA to be
 // incremented
 // @see https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
 var timerBitMap = [4]byte{9, 3, 5, 7}
@@ -39,6 +48,7 @@ var timerBitMap = [4]byte{9, 3, 5, 7}
 func NewTimer(gameboy *GameBoy) *Timer {
 	return &Timer{
 		gameboy: gameboy,
+		sysclk:  0x1E00,
 		div:     0x1E,
 		tima:    0,
 		tma:     0,
@@ -48,15 +58,16 @@ func NewTimer(gameboy *GameBoy) *Timer {
 	}
 }
 
-func (timer *Timer) Tick(cpu *CPU) {
-	lastDiv := timer.div
-	timer.div += 1
+func (timer *Timer) Tick() {
+	lastSysclk := timer.sysclk
+	timer.sysclk += 1
+	timer.div = byte(timer.sysclk >> 8)
 
 	if !timer.enabled() {
 		return
 	}
 
-	incrementTima := GetBit(lastDiv, timer.timerBit) && !GetBit(timer.div, timer.timerBit)
+	incrementTima := (lastSysclk&(1<<timer.timerBit)) != 0 && (timer.sysclk&(1<<timer.timerBit)) == 0
 
 	if !incrementTima {
 		return
@@ -78,13 +89,13 @@ func (timer *Timer) enabled() bool {
 
 func (timer *Timer) readByte(address uint16) byte {
 	switch address {
-	case 0xFF04:
+	case TIMER_DIV:
 		return timer.div
-	case 0xFF05:
+	case TIMER_TIMA:
 		return timer.tima
-	case 0xFF06:
+	case TIMER_TMA:
 		return timer.tma
-	case 0xFF07:
+	case TIMER_TAC:
 		return timer.tac
 	}
 
@@ -93,13 +104,14 @@ func (timer *Timer) readByte(address uint16) byte {
 
 func (timer *Timer) writeByte(address uint16, value byte) {
 	switch address {
-	case 0xFF04:
+	case TIMER_DIV:
+		timer.sysclk = 0
 		timer.div = 0
-	case 0xFF05:
+	case TIMER_TIMA:
 		timer.tima = value
-	case 0xFF06:
+	case TIMER_TMA:
 		timer.tma = value
-	case 0xFF07:
+	case TIMER_TAC:
 		timer.tac = value
 		timer.timerBit = timerBitMap[value&0b11]
 	}

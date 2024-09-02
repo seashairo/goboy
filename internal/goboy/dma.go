@@ -1,5 +1,7 @@
 package goboy
 
+const IO_DMA = 0xFF46
+
 // @see https://gbdev.io/pandocs/OAM_DMA_Transfer.html#ff46--dma-oam-dma-source-address--start
 type DMA struct {
 	bus *Bus

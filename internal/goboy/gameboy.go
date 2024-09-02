@@ -7,7 +7,9 @@ import (
 
 const DEBUG = false
 
-const ROM_PATH = "./data/roms/alleyway.gb"
+// const ROM_PATH = "./data/roms/alleyway.gb"
+
+// const ROM_PATH = "./data/roms/drmario.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"
 
@@ -15,7 +17,7 @@ const ROM_PATH = "./data/roms/alleyway.gb"
 
 // const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
-// const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
+const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
 
 // const ROM_PATH = "./data/roms/blargg/03-op sp,hl.gb"
 
@@ -60,15 +62,16 @@ func NewGameBoy() *GameBoy {
 	lcd := NewLCD(gameboy, bus)
 
 	// Initialize all the Game Boy hardware
-	timer := NewTimer(gameboy)
-	cpu := NewCPU(gameboy, bus, timer)
+	cpu := NewCPU(gameboy, bus)
 	ppu := NewPPU(gameboy, bus, lcd)
 
 	cartridge := LoadCartridge(ROM_PATH)
 	wram := NewRAM(8192, WORK_RAM_START)
 	hram := NewRAM(127, HIGH_RAM_START)
+
 	interruptFlagsRegister := NewInterruptRegister(0)
 	joypad := NewJoypad(gameboy, bus)
+	timer := NewTimer(gameboy)
 
 	io := NewIO(gameboy, bus, timer, interruptFlagsRegister, lcd, joypad)
 	interruptEnableRegister := NewInterruptRegister(0)
@@ -113,9 +116,10 @@ func (gameboy *GameBoy) ClearInterrupt(kind InterruptKind) {
 func (gameboy *GameBoy) Cycle(mCycles int) {
 	tCycles := mCycles * 4
 	for i := 0; i < tCycles; i++ {
-		gameboy.timer.Tick(gameboy.cpu)
+		gameboy.timer.Tick()
 		gameboy.io.dma.Tick()
 		gameboy.ppu.Tick()
+		gameboy.io.serial.Tick()
 	}
 }
 

@@ -40,17 +40,17 @@ const (
 )
 
 const (
-	LCDC_ADDRESS uint16 = 0xFF40
-	STAT_ADDRESS uint16 = 0xFF41
-	LY_ADDRESS   uint16 = 0xFF44
-	LYC_ADDRESS  uint16 = 0xFF45
-	SCY_ADDRESS  uint16 = 0xFF42
-	SCX_ADDRESS  uint16 = 0xFF43
-	WX_ADDRESS   uint16 = 0xFF4B
-	WY_ADDRESS   uint16 = 0xFF4A
-	BGP_ADDRESS  uint16 = 0xFF47
-	OBJ0_ADDRESS uint16 = 0xFF48
-	OBJ1_ADDRESS uint16 = 0xFF49
+	LCD_LCDC uint16 = 0xFF40
+	LCD_STAT uint16 = 0xFF41
+	LCD_LY   uint16 = 0xFF44
+	LCD_LYC  uint16 = 0xFF45
+	LCD_SCY  uint16 = 0xFF42
+	LCD_SCX  uint16 = 0xFF43
+	LCD_WX   uint16 = 0xFF4B
+	LCD_WY   uint16 = 0xFF4A
+	LCD_BGP  uint16 = 0xFF47
+	LCD_OBJ0 uint16 = 0xFF48
+	LCD_OBJ1 uint16 = 0xFF49
 )
 
 var DEFAULT_PALLETTE = [4]uint32{0xFFFFFFFF, 0xFFA9A9A9, 0xFF545454, 0xFF000000}
@@ -103,27 +103,27 @@ func NewLCD(gameboy *GameBoy, bus *Bus) *LCD {
 
 func (lcd *LCD) readByte(address uint16) byte {
 	switch address {
-	case LCDC_ADDRESS:
+	case LCD_LCDC:
 		return lcd.lcdc
-	case STAT_ADDRESS:
+	case LCD_STAT:
 		return lcd.stat
-	case LY_ADDRESS:
+	case LCD_LY:
 		return lcd.ly
-	case LYC_ADDRESS:
+	case LCD_LYC:
 		return lcd.lyc
-	case SCY_ADDRESS:
+	case LCD_SCY:
 		return lcd.scy
-	case SCX_ADDRESS:
+	case LCD_SCX:
 		return lcd.scx
-	case WX_ADDRESS:
+	case LCD_WX:
 		return lcd.wx
-	case WY_ADDRESS:
+	case LCD_WY:
 		return lcd.wy
-	case BGP_ADDRESS:
+	case LCD_BGP:
 		return lcd.bgp
-	case OBJ0_ADDRESS:
+	case LCD_OBJ0:
 		return lcd.obj0
-	case OBJ1_ADDRESS:
+	case LCD_OBJ1:
 		return lcd.obj1
 	}
 
@@ -132,39 +132,39 @@ func (lcd *LCD) readByte(address uint16) byte {
 
 func (lcd *LCD) writeByte(address uint16, value byte) {
 	switch address {
-	case LCDC_ADDRESS:
+	case LCD_LCDC:
 		lcd.lcdc = value
 		return
-	case STAT_ADDRESS:
+	case LCD_STAT:
 		lcd.stat = value
 		return
-	case LY_ADDRESS:
+	case LCD_LY:
 		lcd.ly = value
 		return
-	case LYC_ADDRESS:
+	case LCD_LYC:
 		lcd.lyc = value
 		return
-	case SCY_ADDRESS:
+	case LCD_SCY:
 		lcd.scy = value
 		return
-	case SCX_ADDRESS:
+	case LCD_SCX:
 		lcd.scx = value
 		return
-	case WX_ADDRESS:
+	case LCD_WX:
 		lcd.wx = value
 		return
-	case WY_ADDRESS:
+	case LCD_WY:
 		lcd.wy = value
 		return
-	case BGP_ADDRESS:
+	case LCD_BGP:
 		lcd.updatePalette(&lcd.bgColors, value)
 		lcd.bgp = value
 		return
-	case OBJ0_ADDRESS:
+	case LCD_OBJ0:
 		lcd.updatePalette(&lcd.sp1Colors, value&0b11111100)
 		lcd.obj0 = value
 		return
-	case OBJ1_ADDRESS:
+	case LCD_OBJ1:
 		lcd.updatePalette(&lcd.sp2Colors, value&0b11111100)
 		lcd.obj1 = value
 		return
