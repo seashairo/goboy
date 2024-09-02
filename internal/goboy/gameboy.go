@@ -7,7 +7,7 @@ import (
 
 const DEBUG = false
 
-// const ROM_PATH = "./data/roms/alleyway.gb"
+const ROM_PATH = "./data/roms/alleyway.gb"
 
 // const ROM_PATH = "./data/roms/drmario.gb"
 
@@ -17,7 +17,7 @@ const DEBUG = false
 
 // const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
-const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
+// const ROM_PATH = "./data/roms/blargg/02-interrupts.gb"
 
 // const ROM_PATH = "./data/roms/blargg/03-op sp,hl.gb"
 
