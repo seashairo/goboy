@@ -675,7 +675,7 @@ var instructions = [0x100]instruction{
 		ret(cpu, C_C)
 	},
 	0xD9: func(cpu *CPU) {
-		cpu.interruptMasterEnabled = true
+		cpu.enablingInterruptMaster = true
 		ret(cpu, C_ANY)
 	},
 	0xDB: invalidInstruction,
@@ -752,7 +752,7 @@ var instructions = [0x100]instruction{
 		ldA16ToR8(cpu, R_A)
 	},
 	0xFB: func(cpu *CPU) {
-		cpu.interruptMasterEnabled = true
+		cpu.enablingInterruptMaster = true
 	},
 	0xFC: invalidInstruction,
 	0xFD: invalidInstruction,

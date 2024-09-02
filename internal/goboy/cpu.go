@@ -42,10 +42,10 @@ func (cpu *CPU) Tick() {
 
 	if cpu.interruptMasterEnabled {
 		cpu.handleInterrupts()
-		cpu.enablingInterruptMaster = false
 	}
 
 	if cpu.enablingInterruptMaster {
+		cpu.enablingInterruptMaster = false
 		cpu.interruptMasterEnabled = true
 	}
 }

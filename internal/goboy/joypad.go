@@ -18,13 +18,15 @@ const JOYPAD_SELECT_BUTTONS_BIT = 5
 
 // @see https://gbdev.io/pandocs/Joypad_Input.html#ff00--p1joyp-joypad
 type Joypad struct {
+	gameboy *GameBoy
 	bus     *Bus
 	data    byte
 	buttons byte
 }
 
-func NewJoypad(bus *Bus) *Joypad {
+func NewJoypad(gameboy *GameBoy, bus *Bus) *Joypad {
 	return &Joypad{
+		gameboy: gameboy,
 		bus:     bus,
 		data:    0xFF,
 		buttons: 00,
@@ -54,6 +56,13 @@ func (joypad *Joypad) readByte(_ uint16) byte {
 func (joypad *Joypad) Press(button Button) {
 	if !joypad.Check(button) {
 		joypad.buttons = SetBit(joypad.buttons, byte(button), true)
+
+		dpad := !GetBit(joypad.data, JOYPAD_SELECT_D_PAD_BIT)
+		buttons := !GetBit(joypad.data, JOYPAD_SELECT_BUTTONS_BIT)
+
+		if (buttons && !dpad && button <= JOYPAD_START) || (dpad && !buttons && button >= JOYPAD_RIGHT) {
+			joypad.gameboy.RequestInterrupt(INT_JOYPAD)
+		}
 	}
 }
 

@@ -24,8 +24,17 @@ type Timer struct {
 	// transferred to TIMA due to a timer overflow, the old value is transferred to
 	// TIMA.
 	tma byte
+	// Controls whether or not the timer is enabled, and how fast it ticks at if
+	// it is enabled.
 	tac byte
+
+	timerBit byte
 }
+
+// Map of tac lo bits to the bit that needs to roll over for TIMA to be
+// incremented
+// @see https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
+var timerBitMap = [4]byte{9, 3, 5, 7}
 
 func NewTimer(gameboy *GameBoy) *Timer {
 	return &Timer{
@@ -34,34 +43,37 @@ func NewTimer(gameboy *GameBoy) *Timer {
 		tima:    0,
 		tma:     0,
 		tac:     0xF8,
+
+		timerBit: 9,
 	}
 }
 
 func (timer *Timer) Tick(cpu *CPU) {
 	lastDiv := timer.div
-	timer.div++
+	timer.div += 1
 
-	timerUpdate := false
-
-	switch timer.tac & (0b11) {
-	case 0b00:
-		timerUpdate = lastDiv > timer.div
-	case 0b01:
-		timerUpdate = GetBit(lastDiv, 3) && !GetBit(timer.div, 3)
-	case 0b10:
-		timerUpdate = GetBit(lastDiv, 5) && !GetBit(timer.div, 5)
-	case 0b11:
-		timerUpdate = GetBit(lastDiv, 7) && !GetBit(timer.div, 7)
+	if !timer.enabled() {
+		return
 	}
 
-	if timerUpdate && GetBit(timer.tac, 2) {
-		timer.tima++
+	incrementTima := GetBit(lastDiv, timer.timerBit) && !GetBit(timer.div, timer.timerBit)
 
-		if timer.tima == 0xFF {
-			timer.tima = timer.tma
-			timer.gameboy.RequestInterrupt(INT_TIMER)
-		}
+	if !incrementTima {
+		return
 	}
+
+	timer.tima++
+
+	// When TIMA overflows it should be reset back to the value of TMA and an
+	// interrupt should be requested
+	if timer.tima == 0x00 {
+		timer.tima = timer.tma
+		timer.gameboy.RequestInterrupt(INT_TIMER)
+	}
+}
+
+func (timer *Timer) enabled() bool {
+	return GetBit(timer.tac, 2)
 }
 
 func (timer *Timer) readByte(address uint16) byte {
@@ -89,5 +101,6 @@ func (timer *Timer) writeByte(address uint16, value byte) {
 		timer.tma = value
 	case 0xFF07:
 		timer.tac = value
+		timer.timerBit = timerBitMap[value&0b11]
 	}
 }

@@ -7,9 +7,11 @@ import (
 
 const DEBUG = false
 
-const ROM_PATH = "./data/roms/drmario.gb"
+const ROM_PATH = "./data/roms/alleyway.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"
+
+// const ROM_PATH = "./data/roms/blargg/instr_timing.gb"
 
 // const ROM_PATH = "./data/roms/blargg/01-special.gb"
 
@@ -66,7 +68,7 @@ func NewGameBoy() *GameBoy {
 	wram := NewRAM(8192, WORK_RAM_START)
 	hram := NewRAM(127, HIGH_RAM_START)
 	interruptFlagsRegister := NewInterruptRegister(0)
-	joypad := NewJoypad(bus)
+	joypad := NewJoypad(gameboy, bus)
 
 	io := NewIO(gameboy, bus, timer, interruptFlagsRegister, lcd, joypad)
 	interruptEnableRegister := NewInterruptRegister(0)
