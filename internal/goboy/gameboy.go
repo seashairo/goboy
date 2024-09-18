@@ -138,3 +138,7 @@ func (gameboy *GameBoy) Cycle(mCycles int) {
 func (gameboy *GameBoy) Stop() {
 	gameboy.running = false
 }
+
+func (gameboy *GameBoy) RegisterAudioCallback(callback AudioCallback) {
+	gameboy.apu.callbacks = append(gameboy.apu.callbacks, callback)
+}

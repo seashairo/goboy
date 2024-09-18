@@ -40,6 +40,8 @@ const (
 	APU_WAVE_RAM_END   = 0xFF3F
 )
 
+type AudioCallback func(sample int16)
+
 // @see https://gbdev.io/pandocs/Audio.html
 type APU struct {
 	gameboy *GameBoy
@@ -71,6 +73,8 @@ type APU struct {
 	nr52 byte
 
 	waveRam *RAM
+
+	callbacks []AudioCallback
 }
 
 func NewAPU(gameboy *GameBoy) *APU {
@@ -104,24 +108,31 @@ func NewAPU(gameboy *GameBoy) *APU {
 		nr52: 0,
 
 		waveRam: NewRAM(16, APU_WAVE_RAM_START),
+
+		callbacks: make([]AudioCallback, 0),
 	}
 }
 
-var ph float64
+var phase float64
 
 func (apu *APU) generateSample() int16 {
-	sample := int16(amplitude * math.Sin(ph))
+	sample := int16(amplitude * math.Sin(phase))
 
-	ph += 2 * math.Pi * frequency / float64(sampleRate)
-	if ph > 2*math.Pi {
-		ph -= 2 * math.Pi
+	phase += 2 * math.Pi * frequency / float64(sampleRate)
+	if phase > 2*math.Pi {
+		phase -= 2 * math.Pi
 	}
 
 	return sample
 }
 
 func (apu *APU) Tick() {
-	apu.generateSample()
+	sample := apu.generateSample()
+	for _, cb := range apu.callbacks {
+		if cb != nil {
+			cb(sample)
+		}
+	}
 }
 
 func (apu *APU) readByte(address uint16) byte {

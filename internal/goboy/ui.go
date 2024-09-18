@@ -5,7 +5,7 @@ package goboy
 import "C"
 
 import (
-	"math"
+	"fmt"
 	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -82,8 +82,6 @@ func (ui *UI) updateAudio() {
 		return
 	}
 
-	generateSamples(ui.audioBuffer)
-
 	byteBuffer := unsafe.Slice((*byte)(unsafe.Pointer(&ui.audioBuffer[0])), len(ui.audioBuffer)*2)
 
 	if err := sdl.QueueAudio(ui.audioDeviceId, byteBuffer); err != nil {
@@ -91,20 +89,8 @@ func (ui *UI) updateAudio() {
 	}
 }
 
-var phase float64
-
-func generateSamples(buffer []int16) {
-	for i := 0; i < len(buffer); i += 2 {
-		sample := int16(amplitude * math.Sin(phase))
-
-		buffer[i] = sample
-		buffer[i+1] = sample
-
-		phase += 2 * math.Pi * frequency / float64(sampleRate)
-		if phase > 2*math.Pi {
-			phase -= 2 * math.Pi
-		}
-	}
+func (ui *UI) queueAudio(sample int16) {
+	fmt.Printf("%d\n", sample)
 }
 
 func (ui *UI) initAudio() {
@@ -124,6 +110,10 @@ func (ui *UI) initAudio() {
 	ui.audioBuffer = make([]int16, bufferSize*2)
 
 	sdl.PauseAudioDevice(audioDeviceId, false)
+
+	ui.gameboy.RegisterAudioCallback(func(sample int16) {
+		ui.queueAudio(sample)
+	})
 }
 
 // @see https://gbdev.io/pandocs/Tile_Data.html
