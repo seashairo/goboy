@@ -9,7 +9,7 @@ const DEBUG = false
 
 // const ROM_PATH = "./data/roms/alleyway.gb"
 
-const ROM_PATH = "./data/roms/drmario.gb"
+const ROM_PATH = "./data/roms/bgbtest.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"
 
@@ -49,6 +49,7 @@ type GameBoy struct {
 	timer *Timer
 	bus   MemoryBusser
 	io    *IO
+	apu   *APU
 }
 
 func NewGameBoy() *GameBoy {
@@ -64,6 +65,7 @@ func NewGameBoy() *GameBoy {
 	// Initialize all the Game Boy hardware
 	cpu := NewCPU(gameboy, bus)
 	ppu := NewPPU(gameboy, bus, lcd)
+	apu := NewAPU(gameboy)
 
 	cartridge := LoadCartridge(ROM_PATH)
 	wram := NewRAM(8192, WORK_RAM_START)
@@ -73,7 +75,7 @@ func NewGameBoy() *GameBoy {
 	joypad := NewJoypad(gameboy, bus)
 	timer := NewTimer(gameboy)
 
-	io := NewIO(gameboy, bus, timer, interruptFlagsRegister, lcd, joypad)
+	io := NewIO(gameboy, bus, timer, interruptFlagsRegister, lcd, joypad, apu)
 	interruptEnableRegister := NewInterruptRegister(0)
 	// And then put it on the bus so everything knows what it has access to
 	bus.Init(cartridge, ppu, wram, hram, io, interruptEnableRegister)
@@ -84,6 +86,7 @@ func NewGameBoy() *GameBoy {
 	gameboy.ppu = ppu
 	gameboy.io = io
 	gameboy.joypad = joypad
+	gameboy.apu = apu
 
 	return gameboy
 }
@@ -128,6 +131,7 @@ func (gameboy *GameBoy) Cycle(mCycles int) {
 		gameboy.io.dma.Tick()
 		gameboy.ppu.Tick()
 		gameboy.io.serial.Tick()
+		gameboy.apu.Tick()
 	}
 }
 

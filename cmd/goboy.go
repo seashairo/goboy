@@ -1,6 +1,8 @@
 package main
 
-import "github.com/seashairo/goboy/internal/goboy"
+import (
+	"github.com/seashairo/goboy/internal/goboy"
+)
 
 func main() {
 	goboy.Emulate()

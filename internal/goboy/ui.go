@@ -1,6 +1,11 @@
 package goboy
 
+// typedef unsigned char Uint8;
+// void AudioCallback(void *userdata, Uint8 *stream, int len);
+import "C"
+
 import (
+	"math"
 	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -30,76 +35,95 @@ type UI struct {
 	tileDebugRenderer *sdl.Renderer
 	tileDebugTexture  *sdl.Texture
 	tileDebugSurface  *sdl.Surface
+
+	audioDeviceId sdl.AudioDeviceID
+	audioBuffer   []int16
 }
 
 func NewUI(gameboy *GameBoy) *UI {
-	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
-		panic(err)
-	}
-
-	lcdWidth := LCD_WIDTH * scale
-	lcdHeight := LCD_HEIGHT * scale
-	lcdWindow, lcdRenderer, err := sdl.CreateWindowAndRenderer(lcdWidth, lcdHeight, 0)
-	if err != nil {
-		panic(err)
-	}
-	lcdWindow.SetTitle("GoBoy")
-	lcdWindow.SetPosition(0, 32)
-
-	lcdSurface, err := lcdWindow.GetSurface()
-	if err != nil {
-		panic(err)
-	}
-	lcdSurface.FillRect(nil, 0)
-
-	lcdTexture, err := lcdRenderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, lcdWidth, lcdHeight)
-	if err != nil {
-		panic(err)
-	}
-
-	tileDebugWidth := (TILES_X * TILE_WIDTH * scale) + (TILES_X * scale) - scale
-	tileDebugHeight := (TILES_Y * TILE_HEIGHT * scale) + (TILES_Y * scale) - scale
-	tileDebugWindow, tileDebugRenderer, err := sdl.CreateWindowAndRenderer(tileDebugWidth, tileDebugHeight, 0)
-	if err != nil {
-		panic(err)
-	}
-	tileDebugWindow.SetTitle("Tile Debug")
-
-	tileDebugTexture, err := tileDebugRenderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, tileDebugWidth, tileDebugHeight)
-	if err != nil {
-		panic(err)
-	}
-
-	x, y := lcdWindow.GetPosition()
-	tileDebugWindow.SetPosition(x, y+lcdHeight+32)
-	tileDebugSurface, err := tileDebugWindow.GetSurface()
-	if err != nil {
-		panic(err)
-	}
-	tileDebugSurface.FillRect(nil, 0)
-
-	return &UI{
-		running: true,
-		gameboy: gameboy,
-
-		lcdWindow:   lcdWindow,
-		lcdRenderer: lcdRenderer,
-		lcdSurface:  lcdSurface,
-		lcdTexture:  lcdTexture,
-
+	ui := &UI{
+		running:       true,
+		gameboy:       gameboy,
 		previousFrame: 0,
-
-		tileDebugWindow:   tileDebugWindow,
-		tileDebugRenderer: tileDebugRenderer,
-		tileDebugSurface:  tileDebugSurface,
-		tileDebugTexture:  tileDebugTexture,
 	}
+
+	if err := sdl.Init(sdl.INIT_VIDEO); err != nil {
+		panic(err)
+	}
+
+	if err := sdl.Init(sdl.INIT_AUDIO); err != nil {
+		panic(err)
+	}
+
+	ui.initLcd()
+	ui.initTileDebug()
+	ui.initAudio()
+
+	return ui
 }
 
 func (ui *UI) Update() {
 	ui.handleEvents()
 	ui.updateTileDebugWindow()
 	ui.updateLcdWindow()
+	ui.updateAudio()
+}
+
+const (
+	sampleRate = 44100 // Audio sample rate in Hz
+	amplitude  = 1000  // Amplitude of the waveform
+	frequency  = 440   // Frequency of the sine wave (A4)
+	bufferSize = 512   // Buffer size
+)
+
+func (ui *UI) updateAudio() {
+	// Max 0.125s of audio sitting in the queue
+	if sdl.GetQueuedAudioSize(ui.audioDeviceId) > sampleRate/8 {
+		return
+	}
+
+	generateSamples(ui.audioBuffer)
+
+	byteBuffer := unsafe.Slice((*byte)(unsafe.Pointer(&ui.audioBuffer[0])), len(ui.audioBuffer)*2)
+
+	if err := sdl.QueueAudio(ui.audioDeviceId, byteBuffer); err != nil {
+		panic(err)
+	}
+}
+
+var phase float64
+
+func generateSamples(buffer []int16) {
+	for i := 0; i < len(buffer); i += 2 {
+		sample := int16(amplitude * math.Sin(phase))
+
+		buffer[i] = sample
+		buffer[i+1] = sample
+
+		phase += 2 * math.Pi * frequency / float64(sampleRate)
+		if phase > 2*math.Pi {
+			phase -= 2 * math.Pi
+		}
+	}
+}
+
+func (ui *UI) initAudio() {
+	spec := sdl.AudioSpec{
+		Freq:     sampleRate,
+		Format:   sdl.AUDIO_S16SYS, // Signed 16-bit samples in system byte order
+		Channels: 2,                // Stereo
+		Samples:  bufferSize,       // Buffer size (affects the latency)
+	}
+
+	audioDeviceId, err := sdl.OpenAudioDevice("", false, &spec, nil, 0)
+	if err != nil {
+		panic(err)
+	}
+	ui.audioDeviceId = audioDeviceId
+
+	ui.audioBuffer = make([]int16, bufferSize*2)
+
+	sdl.PauseAudioDevice(audioDeviceId, false)
 }
 
 // @see https://gbdev.io/pandocs/Tile_Data.html
@@ -156,6 +180,36 @@ func (ui *UI) updateTileDebugWindow() {
 	ui.tileDebugRenderer.Present()
 }
 
+func (ui *UI) initTileDebug() {
+	tileDebugWidth := (TILES_X * TILE_WIDTH * scale) + (TILES_X * scale) - scale
+	tileDebugHeight := (TILES_Y * TILE_HEIGHT * scale) + (TILES_Y * scale) - scale
+	tileDebugWindow, tileDebugRenderer, err := sdl.CreateWindowAndRenderer(tileDebugWidth, tileDebugHeight, 0)
+	if err != nil {
+		panic(err)
+	}
+	tileDebugWindow.SetTitle("Tile Debug")
+
+	tileDebugTexture, err := tileDebugRenderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, tileDebugWidth, tileDebugHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	x, _ := ui.lcdWindow.GetPosition()
+	_, h := ui.lcdWindow.GetSize()
+
+	tileDebugWindow.SetPosition(x, h+64)
+	tileDebugSurface, err := tileDebugWindow.GetSurface()
+	if err != nil {
+		panic(err)
+	}
+	tileDebugSurface.FillRect(nil, 0)
+
+	ui.tileDebugWindow = tileDebugWindow
+	ui.tileDebugRenderer = tileDebugRenderer
+	ui.tileDebugSurface = tileDebugSurface
+	ui.tileDebugTexture = tileDebugTexture
+}
+
 func (ui *UI) updateLcdWindow() {
 	if ui.previousFrame == ui.gameboy.ppu.currentFrame {
 		return
@@ -196,6 +250,34 @@ func (ui *UI) updateLcdWindow() {
 	// ui.lcdRenderer.DrawRect(&windowRect2)
 
 	ui.lcdRenderer.Present()
+}
+
+func (ui *UI) initLcd() {
+	lcdWidth := LCD_WIDTH * scale
+	lcdHeight := LCD_HEIGHT * scale
+
+	lcdWindow, lcdRenderer, err := sdl.CreateWindowAndRenderer(lcdWidth, lcdHeight, 0)
+	if err != nil {
+		panic(err)
+	}
+	lcdWindow.SetTitle("GoBoy")
+	lcdWindow.SetPosition(0, 32)
+
+	lcdSurface, err := lcdWindow.GetSurface()
+	if err != nil {
+		panic(err)
+	}
+	lcdSurface.FillRect(nil, 0)
+
+	lcdTexture, err := lcdRenderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, lcdWidth, lcdHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	ui.lcdWindow = lcdWindow
+	ui.lcdRenderer = lcdRenderer
+	ui.lcdSurface = lcdSurface
+	ui.lcdTexture = lcdTexture
 }
 
 func (ui *UI) handleEvents() {
@@ -245,5 +327,9 @@ func (ui *UI) handleEvents() {
 func (ui *UI) Destroy() {
 	ui.lcdWindow.Destroy()
 	ui.tileDebugWindow.Destroy()
+
+	sdl.PauseAudioDevice(ui.audioDeviceId, false)
+	sdl.CloseAudioDevice(ui.audioDeviceId)
+
 	sdl.Quit()
 }

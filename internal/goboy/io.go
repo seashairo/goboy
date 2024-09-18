@@ -11,9 +11,10 @@ type IO struct {
 	lcd        *LCD
 	joypad     *Joypad
 	serial     *Serial
+	apu        *APU
 }
 
-func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister, lcd *LCD, joypad *Joypad) *IO {
+func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *InterruptRegister, lcd *LCD, joypad *Joypad, apu *APU) *IO {
 	dma := NewDMA(bus)
 	serial := NewSerial(gameboy)
 
@@ -24,6 +25,7 @@ func NewIO(gameboy *GameBoy, bus *Bus, timer *Timer, interruptEnableRegister *In
 		lcd:        lcd,
 		joypad:     joypad,
 		serial:     serial,
+		apu:        apu,
 	}
 }
 
@@ -40,6 +42,11 @@ func (io *IO) writeByte(address uint16, value byte) {
 
 	if Between(address, TIMER_DIV, TIMER_TAC) {
 		io.timer.writeByte(address, value)
+		return
+	}
+
+	if Between(address, APU_NR10, APU_WAVE_RAM_END) {
+		io.apu.writeByte(address, value)
 		return
 	}
 
@@ -72,6 +79,10 @@ func (io *IO) readByte(address uint16) byte {
 
 	if Between(address, TIMER_DIV, TIMER_TAC) {
 		return io.timer.readByte(address)
+	}
+
+	if Between(address, APU_NR10, APU_WAVE_RAM_END) {
+		return io.apu.readByte(address)
 	}
 
 	if address == IO_IF {
