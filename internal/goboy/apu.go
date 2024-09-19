@@ -1,6 +1,8 @@
 package goboy
 
-import "math"
+import (
+	"math"
+)
 
 // @see https://gbdev.io/pandocs/Audio_Registers.html
 const (

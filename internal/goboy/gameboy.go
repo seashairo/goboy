@@ -50,13 +50,16 @@ type GameBoy struct {
 	bus   MemoryBusser
 	io    *IO
 	apu   *APU
+
+	tpsTimer *FPSTimer
 }
 
 func NewGameBoy() *GameBoy {
 	gameboy := &GameBoy{
-		running: false,
-		paused:  false,
-		cycles:  0,
+		running:  false,
+		paused:   false,
+		cycles:   0,
+		tpsTimer: NewFPSTimer("tps", 0),
 	}
 
 	bus := &Bus{}
@@ -101,8 +104,9 @@ func (gameboy *GameBoy) Run() {
 			continue
 		}
 
+		gameboy.tpsTimer.FrameStart()
 		gameboy.cpu.Tick()
-		gameboy.cycles++
+		gameboy.tpsTimer.FrameEnd()
 	}
 
 	fmt.Println("GameBoy terminating")
@@ -133,6 +137,7 @@ func (gameboy *GameBoy) Cycle(mCycles int) {
 		gameboy.io.serial.Tick()
 		gameboy.apu.Tick()
 	}
+	gameboy.cycles += uint64(mCycles)
 }
 
 func (gameboy *GameBoy) Stop() {

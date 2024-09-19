@@ -11,8 +11,6 @@ const (
 	SCANLINES_PER_FRAME = 154
 	DOTS_PER_LINE       = 456
 	FRAME_BUFFER_SIZE   = LCD_HEIGHT * LCD_WIDTH
-	LIMIT_FPS           = true
-	TARGET_FRAME_TIME   = int64(1000 / 60) // 60 fps
 )
 
 type OamEntryFlag byte
@@ -44,6 +42,7 @@ type PPU struct {
 	vram      *RAM
 	oam       *[40]OamEntry
 	pixelFifo *PixelFifo
+	fpsTimer  *FPSTimer
 
 	lineSprites       []OamEntry
 	windowLine        uint32
@@ -57,11 +56,12 @@ type PPU struct {
 
 func NewPPU(gameboy *GameBoy, bus *Bus, lcd *LCD) *PPU {
 	ppu := &PPU{
-		gameboy: gameboy,
-		bus:     bus,
-		lcd:     lcd,
-		vram:    NewRAM(8192, VIDEO_RAM_START),
-		oam:     &[40]OamEntry{},
+		gameboy:  gameboy,
+		bus:      bus,
+		lcd:      lcd,
+		vram:     NewRAM(8192, VIDEO_RAM_START),
+		oam:      &[40]OamEntry{},
+		fpsTimer: NewFPSTimer("fps", 60),
 
 		// sprites
 		lineSprites: make([]OamEntry, 40),
@@ -267,26 +267,8 @@ func (ppu *PPU) handleModeHblank() {
 			}
 			ppu.currentFrame++
 
-			if LIMIT_FPS {
-				currentTime := time.Now().UnixMilli()
-				frameTime := currentTime - ppu.previousFrameTime
-
-				if frameTime < TARGET_FRAME_TIME {
-					// todo: this isn't quite right, it's hitting 70 fps, try moving timer
-					// to its own class
-					time.Sleep(time.Duration(TARGET_FRAME_TIME-frameTime) * time.Millisecond)
-				}
-
-				if currentTime-ppu.startTime > 1000 {
-					fps := ppu.frameCount
-					ppu.startTime = currentTime
-					ppu.frameCount = 0
-					fmt.Printf("fps: %d\n", fps)
-				}
-
-				ppu.frameCount++
-				ppu.previousFrameTime = currentTime
-			}
+			ppu.fpsTimer.FrameEnd()
+			ppu.fpsTimer.FrameStart()
 		} else {
 			ppu.lcd.SetMode(LCD_MODE_OAM)
 		}
