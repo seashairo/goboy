@@ -115,6 +115,11 @@ func NewAPU(gameboy *GameBoy) *APU {
 
 var phase float64
 
+const (
+	amplitude = 1000 // Amplitude of the waveform
+	frequency = 440  // Frequency of the sine wave (A4)
+)
+
 func (apu *APU) generateSample() int16 {
 	sample := int16(amplitude * math.Sin(phase))
 

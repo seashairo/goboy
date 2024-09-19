@@ -5,7 +5,6 @@ package goboy
 import "C"
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -66,19 +65,24 @@ func (ui *UI) Update() {
 	ui.handleEvents()
 	ui.updateTileDebugWindow()
 	ui.updateLcdWindow()
-	ui.updateAudio()
 }
 
 const (
 	sampleRate = 44100 // Audio sample rate in Hz
-	amplitude  = 1000  // Amplitude of the waveform
-	frequency  = 440   // Frequency of the sine wave (A4)
-	bufferSize = 512   // Buffer size
+	bufferSize = 2048  // Buffer size
 )
 
-func (ui *UI) updateAudio() {
-	// Max 0.125s of audio sitting in the queue
-	if sdl.GetQueuedAudioSize(ui.audioDeviceId) > sampleRate/8 {
+func (ui *UI) queueAudio(sample int16) {
+	if len(ui.audioBuffer) <= sampleRate*2 {
+		ui.audioBuffer = append(ui.audioBuffer, sample, sample)
+	}
+
+	// 0.25s worth of audio queued up
+	if sdl.GetQueuedAudioSize(ui.audioDeviceId) > sampleRate/4 {
+		return
+	}
+
+	if len(ui.audioBuffer) < bufferSize*2 {
 		return
 	}
 
@@ -87,10 +91,8 @@ func (ui *UI) updateAudio() {
 	if err := sdl.QueueAudio(ui.audioDeviceId, byteBuffer); err != nil {
 		panic(err)
 	}
-}
 
-func (ui *UI) queueAudio(sample int16) {
-	fmt.Printf("%d\n", sample)
+	ui.audioBuffer = ui.audioBuffer[:0]
 }
 
 func (ui *UI) initAudio() {
