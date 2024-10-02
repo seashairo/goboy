@@ -7,9 +7,9 @@ import (
 
 const DEBUG = false
 
-// const ROM_PATH = "./data/roms/alleyway.gb"
+const ROM_PATH = "./data/roms/alleyway.gb"
 
-const ROM_PATH = "./data/roms/bgbtest.gb"
+// const ROM_PATH = "./data/roms/bgbtest.gb"
 
 // const ROM_PATH = "./data/roms/dmg-acid2.gb"
 

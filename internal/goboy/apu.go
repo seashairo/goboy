@@ -1,9 +1,5 @@
 package goboy
 
-import (
-	"math"
-)
-
 // @see https://gbdev.io/pandocs/Audio_Registers.html
 const (
 	// Sound Channel 1 — Pulse with period sweep
@@ -14,6 +10,7 @@ const (
 	APU_NR14 = 0xFF14 // period high & control
 
 	// Sound Channel 2 — Pulse
+	APU_NR20 = 0xFF15 // unused
 	APU_NR21 = 0xFF16 // length timer & duty cycle
 	APU_NR22 = 0xFF17 // volume & envelope
 	APU_NR23 = 0xFF18 // period low [write-only]
@@ -42,126 +39,124 @@ const (
 	APU_WAVE_RAM_END   = 0xFF3F
 )
 
-type AudioCallback func(sample int16)
+const (
+	sampleRate        = 44100
+	cpuTicksPerSample = 4194304 / sampleRate
+)
+
+type AudioCallback func(left int16, right int16)
 
 // @see https://gbdev.io/pandocs/Audio.html
 type APU struct {
 	gameboy *GameBoy
 
-	nr10 byte
-	nr11 byte
-	nr12 byte
-	nr13 byte
-	nr14 byte
+	enabled bool
 
-	nr21 byte
-	nr22 byte
-	nr23 byte
-	nr24 byte
-
-	nr30 byte
-	nr31 byte
-	nr32 byte
-	nr33 byte
-	nr34 byte
-
-	nr41 byte
-	nr42 byte
-	nr43 byte
-	nr44 byte
-
-	nr50 byte
-	nr51 byte
-	nr52 byte
+	nr11, nr12, nr13, nr14       byte
+	nr30, nr31, nr32, nr33, nr34 byte
+	nr41, nr42, nr43, nr44       byte
 
 	waveRam *RAM
+	// pulseChannel1 *AudioChannel
+	pulseChannel2 *PulseChannel
+	// waveChannel   *AudioChannel
+	// noiseChannel  *AudioChannel
+
+	onL, onR         bool
+	volumeL, volumeR byte
+
+	// Internal clock counters
+	frameSequencerCounter uint16
+	frameSequencer        byte
+	sampleCounter         byte
 
 	callbacks []AudioCallback
 }
 
 func NewAPU(gameboy *GameBoy) *APU {
-	return &APU{
-		gameboy: gameboy,
-
-		nr10: 0,
-		nr11: 0,
-		nr12: 0,
-		nr13: 0,
-		nr14: 0,
-
-		nr21: 0,
-		nr22: 0,
-		nr23: 0,
-		nr24: 0,
-
-		nr30: 0,
-		nr31: 0,
-		nr32: 0,
-		nr33: 0,
-		nr34: 0,
-
-		nr41: 0,
-		nr42: 0,
-		nr43: 0,
-		nr44: 0,
-
-		nr50: 0,
-		nr51: 0,
-		nr52: 0,
-
-		waveRam: NewRAM(16, APU_WAVE_RAM_START),
-
+	apu := &APU{
+		gameboy:   gameboy,
+		waveRam:   NewRAM(16, APU_WAVE_RAM_START),
 		callbacks: make([]AudioCallback, 0),
-	}
-}
 
-var phase float64
-
-const (
-	amplitude = 1000 // Amplitude of the waveform
-	frequency = 440  // Frequency of the sine wave (A4)
-)
-
-func (apu *APU) generateSample() int16 {
-	sample := int16(amplitude * math.Sin(phase))
-
-	phase += 2 * math.Pi * frequency / float64(sampleRate)
-	if phase > 2*math.Pi {
-		phase -= 2 * math.Pi
+		frameSequencerCounter: 8192,
+		frameSequencer:        0,
+		sampleCounter:         cpuTicksPerSample,
 	}
 
-	return sample
+	// apu.pulseChannel1 = NewAudioChannel()
+	apu.pulseChannel2 = NewPulseChannel(APU_NR20 - 1)
+	// apu.waveChannel = NewAudioChannel()
+	// apu.noiseChannel = NewAudioChannel()
+
+	return apu
 }
 
 func (apu *APU) Tick() {
-	sample := apu.generateSample()
+	if !apu.enabled {
+		return
+	}
+
+	apu.frameSequencerCounter -= 1
+	if apu.frameSequencerCounter == 0 {
+		apu.frameSequencerCounter = 8192
+
+		switch apu.frameSequencer {
+		case 0:
+			apu.pulseChannel2.LengthClock()
+		case 2:
+			apu.pulseChannel2.LengthClock()
+		case 4:
+			apu.pulseChannel2.LengthClock()
+		case 6:
+			apu.pulseChannel2.LengthClock()
+		case 7:
+			apu.pulseChannel2.EnvelopeClock()
+		}
+
+		apu.frameSequencer = (apu.frameSequencer + 1) & 7
+
+		apu.pulseChannel2.lengthCounter.SetFrameSequencer(apu.frameSequencer)
+	}
+
+	apu.pulseChannel2.Tick()
+
+	apu.sampleCounter -= 1
+	if apu.sampleCounter != 0 {
+		return
+	}
+
+	apu.sampleCounter = cpuTicksPerSample
+
+	pulseSampleL, pulseSampleR := apu.pulseChannel2.GetSample()
+
+	finalSampleL := pulseSampleL
+	finalSampleR := pulseSampleR
+
 	for _, cb := range apu.callbacks {
 		if cb != nil {
-			cb(sample)
+			cb(finalSampleL, finalSampleR)
 		}
 	}
 }
 
 func (apu *APU) readByte(address uint16) byte {
+	if Between(address, APU_NR20, APU_NR24) {
+		return apu.pulseChannel2.readByte(address)
+	}
+
 	switch address {
 	case APU_NR10:
-		return apu.nr10
+		return 0
 	case APU_NR11:
-		return apu.nr11
+		// the lo 6 bits of nr11 are write-only
+		return apu.nr11 & 0b11000000
 	case APU_NR12:
 		return apu.nr12
 	case APU_NR13:
-		return apu.nr13
+		return 0x00
 	case APU_NR14:
 		return apu.nr14
-	case APU_NR21:
-		return apu.nr21
-	case APU_NR22:
-		return apu.nr22
-	case APU_NR23:
-		return apu.nr23
-	case APU_NR24:
-		return apu.nr24
 	case APU_NR30:
 		return apu.nr30
 	case APU_NR31:
@@ -181,11 +176,32 @@ func (apu *APU) readByte(address uint16) byte {
 	case APU_NR44:
 		return apu.nr44
 	case APU_NR50:
-		return apu.nr50
+		out := byte(0)
+
+		out = SetBit(out, 7, apu.onL)
+		out = SetBit(out, 3, apu.onL)
+
+		out |= (apu.volumeL - 1) << 4
+		out |= (apu.volumeR - 1)
+
+		return out
 	case APU_NR51:
-		return apu.nr51
+		out := byte(0)
+
+		// out = SetBit(out, 0, apu.pulseChannel1.onR)
+		out = SetBit(out, 1, apu.pulseChannel2.onR)
+		// out = SetBit(out, 2, apu.waveChannel.onR)
+		// out = SetBit(out, 3, apu.noiseChannel.onR)
+		// out = SetBit(out, 4, apu.pulseChannel1.onL)
+		out = SetBit(out, 5, apu.pulseChannel2.onL)
+		// out = SetBit(out, 6, apu.waveChannel.onL)
+		// out = SetBit(out, 7, apu.noiseChannel.onL)
+
+		return out
 	case APU_NR52:
-		return apu.nr52
+		out := SetBit(0, 7, apu.enabled)
+		out = SetBit(out, 1, apu.pulseChannel2.enabled)
+		return out
 	}
 
 	if Between(address, APU_WAVE_RAM_START, APU_WAVE_RAM_END) {
@@ -196,9 +212,19 @@ func (apu *APU) readByte(address uint16) byte {
 }
 
 func (apu *APU) writeByte(address uint16, value byte) {
+	// If audio master is not enabled, then the APU is considered read-only with
+	// the exception of NR52 which controls whether the APU is enabled.
+	if !apu.enabled && address != APU_NR52 {
+		return
+	}
+
+	if Between(address, APU_NR20, APU_NR24) {
+		apu.pulseChannel2.writeByte(address, value)
+		return
+	}
+
 	switch address {
 	case APU_NR10:
-		apu.nr10 = value
 		return
 	case APU_NR11:
 		apu.nr11 = value
@@ -207,22 +233,8 @@ func (apu *APU) writeByte(address uint16, value byte) {
 		apu.nr12 = value
 		return
 	case APU_NR13:
-		apu.nr13 = value
 		return
 	case APU_NR14:
-		apu.nr14 = value
-		return
-	case APU_NR21:
-		apu.nr21 = value
-		return
-	case APU_NR22:
-		apu.nr22 = value
-		return
-	case APU_NR23:
-		apu.nr23 = value
-		return
-	case APU_NR24:
-		apu.nr24 = value
 		return
 	case APU_NR30:
 		apu.nr30 = value
@@ -252,13 +264,34 @@ func (apu *APU) writeByte(address uint16, value byte) {
 		apu.nr44 = value
 		return
 	case APU_NR50:
-		apu.nr50 = value
+		apu.onL = GetBit(value, 7)
+		apu.volumeL = (value & 0b01110000) + 1
+		apu.onR = GetBit(value, 3)
+		apu.volumeR = (value & 0b00000111) + 1
 		return
 	case APU_NR51:
-		apu.nr51 = value
+		// apu.pulseChannel1.onR = GetBit(value, 0)
+		apu.pulseChannel2.onR = GetBit(value, 1)
+		// apu.waveChannel.onR = GetBit(value, 2)
+		// apu.noiseChannel.onR = GetBit(value, 3)
+		// apu.pulseChannel1.onL = GetBit(value, 4)
+		apu.pulseChannel2.onL = GetBit(value, 5)
+		// apu.waveChannel.onL = GetBit(value, 6)
+		// apu.noiseChannel.onL = GetBit(value, 7)
 		return
 	case APU_NR52:
-		apu.nr52 = value
+		enable := GetBit(value, 7)
+
+		if apu.enabled && !enable {
+			apu.enabled = false
+			apu.volumeL = 0
+			apu.volumeR = 0
+			apu.pulseChannel2.PowerOff()
+		} else if !apu.enabled && enable {
+			apu.frameSequencer = 0
+		}
+
+		apu.enabled = enable
 		return
 	}
 

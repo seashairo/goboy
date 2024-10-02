@@ -35,6 +35,12 @@ type UI struct {
 	tileDebugTexture  *sdl.Texture
 	tileDebugSurface  *sdl.Surface
 
+	// audioDebugWindow   *sdl.Window
+	// audioDebugRenderer *sdl.Renderer
+	// audioDebugTexture  *sdl.Texture
+	// audioDebugSurface  *sdl.Surface
+	// lastAudioSamples   []int16
+
 	audioDeviceId sdl.AudioDeviceID
 	audioBuffer   []int16
 }
@@ -56,6 +62,7 @@ func NewUI(gameboy *GameBoy) *UI {
 
 	ui.initLcd()
 	ui.initTileDebug()
+	// ui.initAudioDebug()
 	ui.initAudio()
 
 	return ui
@@ -65,16 +72,21 @@ func (ui *UI) Update() {
 	ui.handleEvents()
 	ui.updateTileDebugWindow()
 	ui.updateLcdWindow()
+	// ui.updateAudioDebugWindow()
 }
 
 const (
-	sampleRate = 44100 // Audio sample rate in Hz
-	bufferSize = 2048  // Buffer size
+	bufferSize = 1024 // Buffer size
 )
 
-func (ui *UI) queueAudio(sample int16) {
+func (ui *UI) queueAudio(left int16, right int16) {
 	if len(ui.audioBuffer) <= sampleRate*2 {
-		ui.audioBuffer = append(ui.audioBuffer, sample, sample)
+		ui.audioBuffer = append(ui.audioBuffer, left, right)
+
+		// ui.lastAudioSamples = append(ui.lastAudioSamples, left)
+		// if len(ui.lastAudioSamples) > sampleRate {
+		// 	ui.lastAudioSamples = ui.lastAudioSamples[1:]
+		// }
 	}
 
 	// 0.25s worth of audio queued up
@@ -113,8 +125,8 @@ func (ui *UI) initAudio() {
 
 	sdl.PauseAudioDevice(audioDeviceId, false)
 
-	ui.gameboy.RegisterAudioCallback(func(sample int16) {
-		ui.queueAudio(sample)
+	ui.gameboy.RegisterAudioCallback(func(left int16, right int16) {
+		ui.queueAudio(left, right)
 	})
 }
 
@@ -201,6 +213,57 @@ func (ui *UI) initTileDebug() {
 	ui.tileDebugSurface = tileDebugSurface
 	ui.tileDebugTexture = tileDebugTexture
 }
+
+// func (ui *UI) updateAudioDebugWindow() {
+// 	surface := ui.audioDebugSurface
+
+// 	surfaceRect := sdl.Rect{X: 0, Y: 0, W: surface.W, H: surface.H}
+// 	surface.FillRect(&surfaceRect, 0xFF000000)
+
+// 	pixels := surface.Pixels()
+// 	ui.audioDebugTexture.Update(&surfaceRect, unsafe.Pointer(&(pixels[0])), int(surface.Pitch))
+// 	ui.audioDebugRenderer.Copy(ui.audioDebugTexture, nil, nil)
+
+// 	ui.audioDebugRenderer.SetDrawColor(0xFF, 0xFF, 0xFF, 0xFF)
+
+// 	for index, element := range ui.lastAudioSamples {
+// 		if index%8 != 0 {
+// 			continue
+// 		}
+// 		ui.audioDebugRenderer.DrawPoint(int32(index%8), int32(100-element/50))
+// 	}
+
+// 	ui.audioDebugRenderer.Present()
+// }
+
+// func (ui *UI) initAudioDebug() {
+// 	ui.lastAudioSamples = make([]int16, sampleRate)
+
+// 	audioDebugWindow, audioDebugRenderer, err := sdl.CreateWindowAndRenderer(1000, 100, 0)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	audioDebugWindow.SetTitle("Audio Debug")
+
+// 	audioDebugTexture, err := audioDebugRenderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, 1000, 100)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	x, y := ui.lcdWindow.GetPosition()
+
+// 	audioDebugWindow.SetPosition(x+LCD_WIDTH*scale, y)
+// 	audioDebugSurface, err := audioDebugWindow.GetSurface()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	audioDebugSurface.FillRect(nil, 0)
+
+// 	ui.audioDebugWindow = audioDebugWindow
+// 	ui.audioDebugRenderer = audioDebugRenderer
+// 	ui.audioDebugSurface = audioDebugSurface
+// 	ui.audioDebugTexture = audioDebugTexture
+// }
 
 func (ui *UI) updateLcdWindow() {
 	if ui.previousFrame == ui.gameboy.ppu.currentFrame {
