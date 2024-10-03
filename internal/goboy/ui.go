@@ -94,7 +94,7 @@ func (ui *UI) queueAudio(left int16, right int16) {
 		return
 	}
 
-	if len(ui.audioBuffer) < bufferSize*2 {
+	if len(ui.audioBuffer) < bufferSize {
 		return
 	}
 

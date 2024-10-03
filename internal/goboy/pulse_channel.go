@@ -1,5 +1,7 @@
 package goboy
 
+import "fmt"
+
 var dutyTable = [4][8]bool{
 	{false, false, false, false, false, false, false, true},
 	{true, false, false, false, false, false, false, true},
@@ -26,30 +28,40 @@ type PulseChannel struct {
 }
 
 func NewPulseChannel(offset uint16) *PulseChannel {
+	lc := NewLengthCounter()
+	lc.SetFullLength(64)
+
 	return &PulseChannel{
 		offset: offset,
 
 		enabled:    false,
 		dacEnabled: false,
 
+		timer:     0,
+		sequence:  0,
 		duty:      0,
 		frequency: 0,
 		output:    0,
 
 		volumeEnvelope: NewVolumeEnvelope(),
-		lengthCounter:  NewLengthCounter(),
+		lengthCounter:  lc,
 	}
 }
 
 func (pc *PulseChannel) GetSample() (int16, int16) {
+	// output := ((pc.output * 2000) / 15) - 1000
+	output := pc.output * 200
+
+	GetInstance().WriteString(fmt.Sprintf("%4.4X", output))
+
 	left := int16(0)
 	if pc.onL {
-		left = pc.output
+		left = output
 	}
 
 	right := int16(0)
 	if pc.onR {
-		right = pc.output
+		right = output
 	}
 
 	return left, right
@@ -62,7 +74,7 @@ func (pc *PulseChannel) Tick() {
 		pc.sequence = (pc.sequence + 1) & 7
 
 		if pc.enabled && pc.dacEnabled && dutyTable[pc.duty][pc.sequence] {
-			pc.output = int16(pc.volumeEnvelope.GetVolume()) * 100
+			pc.output = int16(pc.volumeEnvelope.GetVolume())
 		} else {
 			pc.output = 0
 		}
@@ -80,7 +92,7 @@ func (pc *PulseChannel) readByte(address uint16) byte {
 	case 0:
 		return 0xFF
 	case 1:
-		return pc.duty << 6
+		return pc.duty<<6 | 0b00111111
 	case 2:
 		return pc.volumeEnvelope.GetNR2()
 	case 3:
@@ -103,7 +115,6 @@ func (pc *PulseChannel) writeByte(address uint16, value byte) {
 	case 2:
 		pc.dacEnabled = value&0b11111000 != 0
 		pc.enabled = pc.enabled && pc.dacEnabled
-
 		pc.volumeEnvelope.SetNR2(value)
 		return
 	case 3:

@@ -22,9 +22,10 @@ func (ve *VolumeEnvelope) Tick() {
 
 	ve.timer--
 	if ve.timer <= 0 {
-		ve.timer = ve.period
-		if ve.timer == 0 {
+		if ve.period == 0 {
 			ve.timer = 8
+		} else {
+			ve.timer = ve.period
 		}
 
 		if ve.addMode && ve.volume < 15 {
@@ -70,9 +71,10 @@ func (ve *VolumeEnvelope) GetVolume() byte {
 func (ve *VolumeEnvelope) Trigger() {
 	ve.volume = ve.initialVolume
 	ve.finished = false
-	ve.timer = ve.period
 
-	if ve.timer == 0 {
+	if ve.period == 0 {
 		ve.timer = 8
+	} else {
+		ve.timer = ve.period
 	}
 }
