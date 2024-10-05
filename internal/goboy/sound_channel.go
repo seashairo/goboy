@@ -20,15 +20,15 @@ type SoundChannel struct {
 	rightSpeakerOn bool
 	leftSpeakerOn  bool
 
-	envelopeDirection envDir
-	envelopeStartVal  byte
-	envelopeSweepVal  byte
-	currentEnvelope   byte
-	envelopeCounter   byte
+	envelopeDirection   envDir
+	envelopeStartVolume byte
+	envelopeSweepPace   byte
+	envelopeVolume      byte
+	envelopeCounter     byte
 
-	t           uint32
-	freqDivider uint32
-	freqReg     uint16
+	t                uint32
+	frequencyDivider uint32
+	period           uint16
 
 	sweepCounter   byte
 	sweepDirection bool
@@ -55,10 +55,10 @@ type SoundChannel struct {
 	restartRequested  bool
 }
 
-func (sc *SoundChannel) runFreqCycle() {
+func (sc *SoundChannel) TickFrequency() {
 	sc.t += 2 // currently called at 2MHz, so tick twice
 
-	if sc.t >= sc.freqDivider {
+	if sc.t >= sc.frequencyDivider {
 		sc.t = 0
 		switch sc.soundType {
 		case squareSoundType:
@@ -89,7 +89,7 @@ func (sc *SoundChannel) updatePolyCounter() {
 	}
 }
 
-func (sc *SoundChannel) runLengthCycle() {
+func (sc *SoundChannel) TickLength() {
 	if sc.currentLength > 0 && !sc.playsContinuously {
 		sc.currentLength--
 		if sc.currentLength == 0 {
@@ -110,14 +110,14 @@ func (sc *SoundChannel) runLengthCycle() {
 		}
 
 		sc.currentLength = sc.lengthData
-		sc.currentEnvelope = sc.envelopeStartVal
+		sc.envelopeVolume = sc.envelopeStartVolume
 		sc.sweepCounter = 0
 		sc.wavePatternCursor = 0
 		sc.polyFeedbackReg = 0xFFFF
 	}
 }
 
-func (sc *SoundChannel) runSweepCycle() {
+func (sc *SoundChannel) TickSweep() {
 	if sc.sweepTime != 0 {
 		if sc.sweepCounter < sc.sweepTime {
 			sc.sweepCounter++
@@ -126,34 +126,33 @@ func (sc *SoundChannel) runSweepCycle() {
 			var nextFreq uint16
 
 			if sc.sweepDirection {
-				nextFreq = sc.freqReg - (sc.freqReg >> uint16(sc.sweepShift))
+				nextFreq = sc.period - (sc.period >> uint16(sc.sweepShift))
 			} else {
-				nextFreq = sc.freqReg + (sc.freqReg >> uint16(sc.sweepShift))
+				nextFreq = sc.period + (sc.period >> uint16(sc.sweepShift))
 			}
 
 			if nextFreq > 2047 {
 				sc.enabled = false
 			} else {
-				sc.freqReg = nextFreq
+				sc.period = nextFreq
 				sc.updateFrequency()
 			}
 		}
 	}
 }
 
-func (sc *SoundChannel) runEnvCycle() {
-	if sc.envelopeSweepVal != 0 {
-		if sc.envelopeCounter < sc.envelopeSweepVal {
+func (sc *SoundChannel) TickVolumeEnvelope() {
+	if sc.envelopeSweepPace != 0 {
+		if sc.envelopeCounter < sc.envelopeSweepPace {
 			sc.envelopeCounter++
 		} else {
 			sc.envelopeCounter = 0
 
-			if sc.envelopeDirection == envUp && sc.currentEnvelope < 15 {
-				sc.currentEnvelope++
+			if sc.envelopeDirection == envUp && sc.envelopeVolume < 15 {
+				sc.envelopeVolume++
 
-			} else if sc.envelopeDirection == envDown && sc.currentEnvelope > 0 {
-				sc.currentEnvelope--
-
+			} else if sc.envelopeDirection == envDown && sc.envelopeVolume > 0 {
+				sc.envelopeVolume--
 			}
 		}
 	}
@@ -177,9 +176,8 @@ func (sc *SoundChannel) getSample() (byte, byte) {
 	if sc.enabled {
 		switch sc.soundType {
 		case squareSoundType:
-			vol := sc.currentEnvelope
 			if sc.inDutyCycle() {
-				sample = vol
+				sample = sc.envelopeVolume
 			} else {
 				sample = 0
 			}
@@ -195,9 +193,8 @@ func (sc *SoundChannel) getSample() (byte, byte) {
 			}
 
 		case noiseSoundType:
-			if sc.freqDivider > 0 {
-				vol := sc.currentEnvelope
-				sample = vol * sc.polySample
+			if sc.frequencyDivider > 0 {
+				sample = sc.envelopeVolume * sc.polySample
 			}
 		}
 	}
@@ -218,7 +215,7 @@ func (sc *SoundChannel) getSample() (byte, byte) {
 func (sc *SoundChannel) updateFrequency() {
 	switch sc.soundType {
 	case waveSoundType:
-		sc.freqDivider = 2 * (2048 - uint32(sc.freqReg))
+		sc.frequencyDivider = 2 * (2048 - uint32(sc.period))
 	case noiseSoundType:
 		divider := uint32(8)
 
@@ -230,9 +227,9 @@ func (sc *SoundChannel) updateFrequency() {
 			}
 		}
 
-		sc.freqDivider = divider
+		sc.frequencyDivider = divider
 	case squareSoundType:
-		sc.freqDivider = 4 * (2048 - uint32(sc.freqReg))
+		sc.frequencyDivider = 4 * (2048 - uint32(sc.period))
 	}
 }
 
@@ -314,45 +311,45 @@ func (sc *SoundChannel) readSweepReg() byte {
 	return SetBit(value, 7, true)
 }
 
-func (sc *SoundChannel) writeSoundEnvReg(value byte) {
-	sc.envelopeStartVal = value >> 4
+func (sc *SoundChannel) writeVolumeEnvelope(value byte) {
+	sc.envelopeStartVolume = value >> 4
 
-	if sc.envelopeStartVal == 0 {
+	if sc.envelopeStartVolume == 0 {
 		sc.enabled = false
 	}
 
 	sc.envelopeDirection = envDir(GetBit(value, 3))
 
-	sc.envelopeSweepVal = value & 0x07
+	sc.envelopeSweepPace = value & 0x07
 }
 
-func (sc *SoundChannel) readSoundEnvReg() byte {
-	value := sc.envelopeStartVal<<4 | sc.envelopeSweepVal
+func (sc *SoundChannel) readVolumeEnvelope() byte {
+	value := sc.envelopeStartVolume<<4 | sc.envelopeSweepPace
 	return SetBit(value, 3, bool(sc.envelopeDirection))
 }
 
-func (sc *SoundChannel) writeFreqLowReg(value byte) {
-	sc.freqReg &^= 0x00ff
-	sc.freqReg |= uint16(value)
+func (sc *SoundChannel) writePeriodLow(value byte) {
+	sc.period &^= 0x00ff
+	sc.period |= uint16(value)
 	sc.updateFrequency()
 }
 
-func (sc *SoundChannel) readFreqLowReg() byte {
+func (sc *SoundChannel) readPeriodLow() byte {
 	return 0xFF
 }
 
-func (sc *SoundChannel) writeFreqHighReg(value byte) {
+func (sc *SoundChannel) writePeriodHigh(value byte) {
 	if value&0x80 != 0 {
 		sc.restartRequested = true
 	}
 
 	sc.playsContinuously = value&0x40 == 0
-	sc.freqReg &^= 0xFF00
-	sc.freqReg |= uint16(value&0x07) << 8
+	sc.period &^= 0xFF00
+	sc.period |= uint16(value&0x07) << 8
 	sc.updateFrequency()
 }
 
-func (sc *SoundChannel) readFreqHighReg() byte {
+func (sc *SoundChannel) readPeriodHigh() byte {
 	value := byte(0xFF)
 
 	if sc.playsContinuously {

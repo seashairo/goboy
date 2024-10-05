@@ -74,13 +74,11 @@ type APU struct {
 	LeftSpeakerVolume  byte
 
 	callbacks []AudioCallback
-	tpsTimer  FPSTimer
 }
 
 func NewAPU(gameboy *GameBoy) *APU {
 	apu := &APU{
 		gameboy:               gameboy,
-		tpsTimer:              *NewFPSTimer("apu", 0),
 		frameSequencerCounter: clocksPerFrame,
 	}
 
@@ -95,7 +93,7 @@ func NewAPU(gameboy *GameBoy) *APU {
 }
 
 func (apu *APU) generateSample() {
-	apu.runFreqCycle()
+	apu.TickFrequency()
 
 	leftSam, rightSam := uint32(0), uint32(0)
 	if apu.masterEnable {
@@ -158,17 +156,17 @@ func (apu *APU) Tick() {
 
 		switch apu.frameSequencer {
 		case 0:
-			apu.runLengthCycle()
+			apu.TickLength()
 		case 2:
-			apu.runLengthCycle()
-			apu.soundChannels[0].runSweepCycle()
+			apu.TickLength()
+			apu.soundChannels[0].TickSweep()
 		case 4:
-			apu.runLengthCycle()
+			apu.TickLength()
 		case 6:
-			apu.runLengthCycle()
-			apu.soundChannels[0].runSweepCycle()
+			apu.TickLength()
+			apu.soundChannels[0].TickSweep()
 		case 7:
-			apu.runEnvCycle()
+			apu.TickVolumeEnvelope()
 		}
 
 		apu.frameSequencer = (apu.frameSequencer + 1) & 7
@@ -179,25 +177,25 @@ func (apu *APU) Tick() {
 	}
 }
 
-func (apu *APU) runFreqCycle() {
-	apu.soundChannels[0].runFreqCycle()
-	apu.soundChannels[1].runFreqCycle()
-	apu.soundChannels[2].runFreqCycle()
-	apu.soundChannels[3].runFreqCycle()
+func (apu *APU) TickFrequency() {
+	apu.soundChannels[0].TickFrequency()
+	apu.soundChannels[1].TickFrequency()
+	apu.soundChannels[2].TickFrequency()
+	apu.soundChannels[3].TickFrequency()
 }
 
-func (apu *APU) runLengthCycle() {
-	apu.soundChannels[0].runLengthCycle()
-	apu.soundChannels[1].runLengthCycle()
-	apu.soundChannels[2].runLengthCycle()
-	apu.soundChannels[3].runLengthCycle()
+func (apu *APU) TickLength() {
+	apu.soundChannels[0].TickLength()
+	apu.soundChannels[1].TickLength()
+	apu.soundChannels[2].TickLength()
+	apu.soundChannels[3].TickLength()
 }
 
-func (apu *APU) runEnvCycle() {
-	apu.soundChannels[0].runEnvCycle()
-	apu.soundChannels[1].runEnvCycle()
-	apu.soundChannels[2].runEnvCycle()
-	apu.soundChannels[3].runEnvCycle()
+func (apu *APU) TickVolumeEnvelope() {
+	apu.soundChannels[0].TickVolumeEnvelope()
+	apu.soundChannels[1].TickVolumeEnvelope()
+	apu.soundChannels[2].TickVolumeEnvelope()
+	apu.soundChannels[3].TickVolumeEnvelope()
 }
 
 func (apu *APU) writeByte(address uint16, value byte) {
@@ -207,20 +205,20 @@ func (apu *APU) writeByte(address uint16, value byte) {
 	case APU_NR11:
 		apu.soundChannels[0].writeLenDutyReg(value)
 	case APU_NR12:
-		apu.soundChannels[0].writeSoundEnvReg(value)
+		apu.soundChannels[0].writeVolumeEnvelope(value)
 	case APU_NR13:
-		apu.soundChannels[0].writeFreqLowReg(value)
+		apu.soundChannels[0].writePeriodLow(value)
 	case APU_NR14:
-		apu.soundChannels[0].writeFreqHighReg(value)
+		apu.soundChannels[0].writePeriodHigh(value)
 
 	case APU_NR21:
 		apu.soundChannels[1].writeLenDutyReg(value)
 	case APU_NR22:
-		apu.soundChannels[1].writeSoundEnvReg(value)
+		apu.soundChannels[1].writeVolumeEnvelope(value)
 	case APU_NR23:
-		apu.soundChannels[1].writeFreqLowReg(value)
+		apu.soundChannels[1].writePeriodLow(value)
 	case APU_NR24:
-		apu.soundChannels[1].writeFreqHighReg(value)
+		apu.soundChannels[1].writePeriodHigh(value)
 
 	case APU_NR30:
 		apu.soundChannels[2].writeWaveOnOffReg(value)
@@ -229,18 +227,18 @@ func (apu *APU) writeByte(address uint16, value byte) {
 	case APU_NR32:
 		apu.soundChannels[2].writeWaveOutLvlReg(value)
 	case APU_NR33:
-		apu.soundChannels[2].writeFreqLowReg(value)
+		apu.soundChannels[2].writePeriodLow(value)
 	case APU_NR34:
-		apu.soundChannels[2].writeFreqHighReg(value)
+		apu.soundChannels[2].writePeriodHigh(value)
 
 	case APU_NR41:
 		apu.soundChannels[3].writeLengthDataReg(value)
 	case APU_NR42:
-		apu.soundChannels[3].writeSoundEnvReg(value)
+		apu.soundChannels[3].writeVolumeEnvelope(value)
 	case APU_NR43:
 		apu.soundChannels[3].writePolyCounterReg(value)
 	case APU_NR44:
-		apu.soundChannels[3].writeFreqHighReg(value)
+		apu.soundChannels[3].writePeriodHigh(value)
 
 	case APU_NR50:
 		apu.writeVolumeReg(value)
@@ -262,20 +260,20 @@ func (apu *APU) readByte(address uint16) byte {
 	case APU_NR11:
 		return apu.soundChannels[0].readLenDutyReg()
 	case APU_NR12:
-		return apu.soundChannels[0].readSoundEnvReg()
+		return apu.soundChannels[0].readVolumeEnvelope()
 	case APU_NR13:
-		return apu.soundChannels[0].readFreqLowReg()
+		return apu.soundChannels[0].readPeriodLow()
 	case APU_NR14:
-		return apu.soundChannels[0].readFreqHighReg()
+		return apu.soundChannels[0].readPeriodHigh()
 
 	case APU_NR21:
 		return apu.soundChannels[1].readLenDutyReg()
 	case APU_NR22:
-		return apu.soundChannels[1].readSoundEnvReg()
+		return apu.soundChannels[1].readVolumeEnvelope()
 	case APU_NR23:
-		return apu.soundChannels[1].readFreqLowReg()
+		return apu.soundChannels[1].readPeriodLow()
 	case APU_NR24:
-		return apu.soundChannels[1].readFreqHighReg()
+		return apu.soundChannels[1].readPeriodHigh()
 
 	case APU_NR30:
 		return apu.soundChannels[2].readWaveOnOffReg()
@@ -284,18 +282,18 @@ func (apu *APU) readByte(address uint16) byte {
 	case APU_NR32:
 		return apu.soundChannels[2].readWaveOutLvlReg()
 	case APU_NR33:
-		return apu.soundChannels[2].readFreqLowReg()
+		return apu.soundChannels[2].readPeriodLow()
 	case APU_NR34:
-		return apu.soundChannels[2].readFreqHighReg()
+		return apu.soundChannels[2].readPeriodHigh()
 
 	case APU_NR41:
 		return apu.soundChannels[3].readLengthDataReg()
 	case APU_NR42:
-		return apu.soundChannels[3].readSoundEnvReg()
+		return apu.soundChannels[3].readVolumeEnvelope()
 	case APU_NR43:
 		return apu.soundChannels[3].readPolyCounterReg()
 	case APU_NR44:
-		return apu.soundChannels[3].readFreqHighReg()
+		return apu.soundChannels[3].readPeriodHigh()
 
 	case APU_NR50:
 		return apu.readVolumeReg()
