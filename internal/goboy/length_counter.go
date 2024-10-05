@@ -61,11 +61,7 @@ func (lc *LengthCounter) IsZero() bool {
 }
 
 func (lc *LengthCounter) SetLength(length byte) {
-	if length == 0 {
-		lc.length = lc.fullLength
-	} else {
-		lc.length = lc.fullLength - length
-	}
+	lc.length = lc.fullLength - length
 }
 
 func (lc *LengthCounter) SetFullLength(fullLength byte) {

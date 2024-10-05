@@ -40,262 +40,330 @@ const (
 )
 
 const (
-	sampleRate        = 44100
-	cpuTicksPerSample = 4194304 / sampleRate
+	sampleRate      = 44100
+	clocksPerSecond = 4194304
+	clocksPerSample = clocksPerSecond / sampleRate / 2
+	clocksPerFrame  = 8192
 )
 
 type AudioCallback func(left int16, right int16)
 
-// @see https://gbdev.io/pandocs/Audio.html
 type APU struct {
 	gameboy *GameBoy
 
-	enabled bool
+	LeftSample  uint32
+	RightSample uint32
+	NumSamples  uint32
 
-	nr11, nr12, nr13, nr14       byte
-	nr30, nr31, nr32, nr33, nr34 byte
-	nr41, nr42, nr43, nr44       byte
+	LastLeft           float64
+	LastRight          float64
+	LastCorrectedLeft  float64
+	LastCorrectedRight float64
 
-	waveRam *RAM
-	// pulseChannel1 *AudioChannel
-	pulseChannel2 *PulseChannel
-	// waveChannel   *AudioChannel
-	// noiseChannel  *AudioChannel
+	masterEnable bool
 
-	onL, onR         bool
-	volumeL, volumeR byte
-
-	// Internal clock counters
 	frameSequencerCounter uint16
 	frameSequencer        byte
-	sampleCounter         byte
+
+	soundChannels [4]SoundChannel
+
+	VInToLeftSpeaker  bool
+	VInToRightSpeaker bool
+
+	RightSpeakerVolume byte
+	LeftSpeakerVolume  byte
 
 	callbacks []AudioCallback
+	tpsTimer  FPSTimer
 }
 
 func NewAPU(gameboy *GameBoy) *APU {
 	apu := &APU{
-		gameboy:   gameboy,
-		waveRam:   NewRAM(16, APU_WAVE_RAM_START),
-		callbacks: make([]AudioCallback, 0),
-
-		frameSequencerCounter: 8192,
-		frameSequencer:        0,
-		sampleCounter:         cpuTicksPerSample,
+		gameboy:               gameboy,
+		tpsTimer:              *NewFPSTimer("apu", 0),
+		frameSequencerCounter: clocksPerFrame,
 	}
 
-	// apu.pulseChannel1 = NewAudioChannel()
-	apu.pulseChannel2 = NewPulseChannel(APU_NR20 - 1)
-	// apu.waveChannel = NewAudioChannel()
-	// apu.noiseChannel = NewAudioChannel()
+	apu.soundChannels[0].soundType = squareSoundType
+	apu.soundChannels[1].soundType = squareSoundType
+	apu.soundChannels[2].soundType = waveSoundType
+	apu.soundChannels[3].soundType = noiseSoundType
+
+	apu.soundChannels[3].polyFeedbackReg = 0x01
 
 	return apu
 }
 
-func (apu *APU) Tick() {
-	if !apu.enabled {
-		return
+func (apu *APU) generateSample() {
+	apu.runFreqCycle()
+
+	leftSam, rightSam := uint32(0), uint32(0)
+	if apu.masterEnable {
+		left0, right0 := apu.soundChannels[0].getSample()
+		leftSam += uint32(left0)
+		rightSam += uint32(right0)
+
+		left1, right1 := apu.soundChannels[1].getSample()
+		leftSam += uint32(left1)
+		rightSam += uint32(right1)
+
+		left2, right2 := apu.soundChannels[2].getSample()
+		leftSam += uint32(left2)
+		rightSam += uint32(right2)
+
+		left3, right3 := apu.soundChannels[3].getSample()
+		leftSam += uint32(left3)
+		rightSam += uint32(right3)
+
+		leftSam *= uint32(apu.LeftSpeakerVolume + 1)
+		rightSam *= uint32(apu.RightSpeakerVolume + 1)
 	}
 
-	apu.frameSequencerCounter -= 1
+	apu.LeftSample += leftSam
+	apu.RightSample += rightSam
+	apu.NumSamples++
+
+	if apu.NumSamples >= clocksPerSample {
+		left := float64(apu.LeftSample) / float64(apu.NumSamples)
+		right := float64(apu.RightSample) / float64(apu.NumSamples)
+		left /= 4 * 8 * 15
+		right /= 4 * 8 * 15
+
+		correctedLeft := left - apu.LastLeft + 0.995*apu.LastCorrectedLeft
+		apu.LastCorrectedLeft = correctedLeft
+		apu.LastLeft = left
+		left = correctedLeft
+
+		correctedRight := right - apu.LastRight + 0.995*apu.LastCorrectedRight
+		apu.LastCorrectedRight = correctedRight
+		apu.LastRight = right
+		right = correctedRight
+
+		for _, cb := range apu.callbacks {
+			if cb != nil {
+				cb(int16(left*32767.0), int16(right*32767.0))
+			}
+		}
+
+		apu.LeftSample = 0
+		apu.RightSample = 0
+		apu.NumSamples = 0
+	}
+}
+
+func (apu *APU) Tick() {
+	apu.frameSequencerCounter--
 	if apu.frameSequencerCounter == 0 {
-		apu.frameSequencerCounter = 8192
+		apu.frameSequencerCounter = clocksPerFrame
 
 		switch apu.frameSequencer {
 		case 0:
-			apu.pulseChannel2.LengthClock()
+			apu.runLengthCycle()
 		case 2:
-			apu.pulseChannel2.LengthClock()
+			apu.runLengthCycle()
+			apu.soundChannels[0].runSweepCycle()
 		case 4:
-			apu.pulseChannel2.LengthClock()
+			apu.runLengthCycle()
 		case 6:
-			apu.pulseChannel2.LengthClock()
+			apu.runLengthCycle()
+			apu.soundChannels[0].runSweepCycle()
 		case 7:
-			apu.pulseChannel2.EnvelopeClock()
+			apu.runEnvCycle()
 		}
 
 		apu.frameSequencer = (apu.frameSequencer + 1) & 7
-
-		apu.pulseChannel2.lengthCounter.SetFrameSequencer(apu.frameSequencer)
 	}
 
-	apu.pulseChannel2.Tick()
+	if apu.frameSequencerCounter&1 == 0 {
+		apu.generateSample()
+	}
+}
 
-	apu.sampleCounter -= 1
-	if apu.sampleCounter != 0 {
-		return
+func (apu *APU) runFreqCycle() {
+	apu.soundChannels[0].runFreqCycle()
+	apu.soundChannels[1].runFreqCycle()
+	apu.soundChannels[2].runFreqCycle()
+	apu.soundChannels[3].runFreqCycle()
+}
+
+func (apu *APU) runLengthCycle() {
+	apu.soundChannels[0].runLengthCycle()
+	apu.soundChannels[1].runLengthCycle()
+	apu.soundChannels[2].runLengthCycle()
+	apu.soundChannels[3].runLengthCycle()
+}
+
+func (apu *APU) runEnvCycle() {
+	apu.soundChannels[0].runEnvCycle()
+	apu.soundChannels[1].runEnvCycle()
+	apu.soundChannels[2].runEnvCycle()
+	apu.soundChannels[3].runEnvCycle()
+}
+
+func (apu *APU) writeByte(address uint16, value byte) {
+	switch address {
+	case APU_NR10:
+		apu.soundChannels[0].writeSweepReg(value)
+	case APU_NR11:
+		apu.soundChannels[0].writeLenDutyReg(value)
+	case APU_NR12:
+		apu.soundChannels[0].writeSoundEnvReg(value)
+	case APU_NR13:
+		apu.soundChannels[0].writeFreqLowReg(value)
+	case APU_NR14:
+		apu.soundChannels[0].writeFreqHighReg(value)
+
+	case APU_NR21:
+		apu.soundChannels[1].writeLenDutyReg(value)
+	case APU_NR22:
+		apu.soundChannels[1].writeSoundEnvReg(value)
+	case APU_NR23:
+		apu.soundChannels[1].writeFreqLowReg(value)
+	case APU_NR24:
+		apu.soundChannels[1].writeFreqHighReg(value)
+
+	case APU_NR30:
+		apu.soundChannels[2].writeWaveOnOffReg(value)
+	case APU_NR31:
+		apu.soundChannels[2].writeLengthDataReg(value)
+	case APU_NR32:
+		apu.soundChannels[2].writeWaveOutLvlReg(value)
+	case APU_NR33:
+		apu.soundChannels[2].writeFreqLowReg(value)
+	case APU_NR34:
+		apu.soundChannels[2].writeFreqHighReg(value)
+
+	case APU_NR41:
+		apu.soundChannels[3].writeLengthDataReg(value)
+	case APU_NR42:
+		apu.soundChannels[3].writeSoundEnvReg(value)
+	case APU_NR43:
+		apu.soundChannels[3].writePolyCounterReg(value)
+	case APU_NR44:
+		apu.soundChannels[3].writeFreqHighReg(value)
+
+	case APU_NR50:
+		apu.writeVolumeReg(value)
+	case APU_NR51:
+		apu.writeSpeakerSelectReg(value)
+	case APU_NR52:
+		apu.writeSoundOnOffReg(value)
 	}
 
-	apu.sampleCounter = cpuTicksPerSample
-
-	pulseSampleL, pulseSampleR := apu.pulseChannel2.GetSample()
-
-	finalSampleL := pulseSampleL
-	finalSampleR := pulseSampleR
-
-	for _, cb := range apu.callbacks {
-		if cb != nil {
-			cb(finalSampleL, finalSampleR)
-		}
+	if address >= APU_WAVE_RAM_START && address <= APU_WAVE_RAM_END {
+		apu.soundChannels[2].writeWavePatternValue(address-APU_WAVE_RAM_START, value)
 	}
 }
 
 func (apu *APU) readByte(address uint16) byte {
-	if Between(address, APU_NR20, APU_NR24) {
-		return apu.pulseChannel2.readByte(address)
-	}
-
 	switch address {
 	case APU_NR10:
-		return 0
+		return apu.soundChannels[0].readSweepReg()
 	case APU_NR11:
-		// the lo 6 bits of nr11 are write-only
-		return apu.nr11 & 0b11000000
+		return apu.soundChannels[0].readLenDutyReg()
 	case APU_NR12:
-		return apu.nr12
+		return apu.soundChannels[0].readSoundEnvReg()
 	case APU_NR13:
-		return 0x00
+		return apu.soundChannels[0].readFreqLowReg()
 	case APU_NR14:
-		return apu.nr14
+		return apu.soundChannels[0].readFreqHighReg()
+
+	case APU_NR21:
+		return apu.soundChannels[1].readLenDutyReg()
+	case APU_NR22:
+		return apu.soundChannels[1].readSoundEnvReg()
+	case APU_NR23:
+		return apu.soundChannels[1].readFreqLowReg()
+	case APU_NR24:
+		return apu.soundChannels[1].readFreqHighReg()
+
 	case APU_NR30:
-		return apu.nr30
+		return apu.soundChannels[2].readWaveOnOffReg()
 	case APU_NR31:
-		return apu.nr31
+		return apu.soundChannels[2].readLengthDataReg()
 	case APU_NR32:
-		return apu.nr32
+		return apu.soundChannels[2].readWaveOutLvlReg()
 	case APU_NR33:
-		return apu.nr33
+		return apu.soundChannels[2].readFreqLowReg()
 	case APU_NR34:
-		return apu.nr34
+		return apu.soundChannels[2].readFreqHighReg()
+
 	case APU_NR41:
-		return apu.nr41
+		return apu.soundChannels[3].readLengthDataReg()
 	case APU_NR42:
-		return apu.nr42
+		return apu.soundChannels[3].readSoundEnvReg()
 	case APU_NR43:
-		return apu.nr43
+		return apu.soundChannels[3].readPolyCounterReg()
 	case APU_NR44:
-		return apu.nr44
+		return apu.soundChannels[3].readFreqHighReg()
+
 	case APU_NR50:
-		out := byte(0)
-
-		out = SetBit(out, 7, apu.onL)
-		out = SetBit(out, 3, apu.onL)
-
-		out |= (apu.volumeL - 1) << 4
-		out |= (apu.volumeR - 1)
-
-		return out
+		return apu.readVolumeReg()
 	case APU_NR51:
-		out := byte(0)
-
-		// out = SetBit(out, 0, apu.pulseChannel1.onR)
-		out = SetBit(out, 1, apu.pulseChannel2.onR)
-		// out = SetBit(out, 2, apu.waveChannel.onR)
-		// out = SetBit(out, 3, apu.noiseChannel.onR)
-		// out = SetBit(out, 4, apu.pulseChannel1.onL)
-		out = SetBit(out, 5, apu.pulseChannel2.onL)
-		// out = SetBit(out, 6, apu.waveChannel.onL)
-		// out = SetBit(out, 7, apu.noiseChannel.onL)
-
-		return out
+		return apu.readSpeakerSelectReg()
 	case APU_NR52:
-		out := SetBit(0, 7, apu.enabled)
-		out = SetBit(out, 1, apu.pulseChannel2.enabled)
-		return out
+		return apu.readSoundOnOffReg()
 	}
 
-	if Between(address, APU_WAVE_RAM_START, APU_WAVE_RAM_END) {
-		return apu.waveRam.readByte(address)
+	if address >= APU_WAVE_RAM_START && address < APU_WAVE_RAM_END {
+		return apu.soundChannels[2].wavePatternRAM[address-APU_WAVE_RAM_START]
 	}
 
-	return 0
+	return 0xFF
 }
 
-func (apu *APU) writeByte(address uint16, value byte) {
-	// If audio master is not enabled, then the APU is considered read-only with
-	// the exception of NR52 which controls whether the APU is enabled.
-	if !apu.enabled && address != APU_NR52 {
-		return
-	}
+func (apu *APU) writeVolumeReg(value byte) {
+	apu.VInToLeftSpeaker = GetBit(value, 7)
+	apu.VInToRightSpeaker = GetBit(value, 3)
+	apu.RightSpeakerVolume = (value >> 4) & 0x07
+	apu.LeftSpeakerVolume = value & 0x07
+}
 
-	if Between(address, APU_NR20, APU_NR24) {
-		apu.pulseChannel2.writeByte(address, value)
-		return
-	}
+func (apu *APU) readVolumeReg() byte {
+	out := apu.RightSpeakerVolume<<4 | apu.LeftSpeakerVolume
+	out = SetBit(out, 7, apu.VInToLeftSpeaker)
+	out = SetBit(out, 3, apu.VInToRightSpeaker)
+	return out
+}
 
-	switch address {
-	case APU_NR10:
-		return
-	case APU_NR11:
-		apu.nr11 = value
-		return
-	case APU_NR12:
-		apu.nr12 = value
-		return
-	case APU_NR13:
-		return
-	case APU_NR14:
-		return
-	case APU_NR30:
-		apu.nr30 = value
-		return
-	case APU_NR31:
-		apu.nr31 = value
-		return
-	case APU_NR32:
-		apu.nr32 = value
-		return
-	case APU_NR33:
-		apu.nr33 = value
-		return
-	case APU_NR34:
-		apu.nr34 = value
-		return
-	case APU_NR41:
-		apu.nr41 = value
-		return
-	case APU_NR42:
-		apu.nr42 = value
-		return
-	case APU_NR43:
-		apu.nr43 = value
-		return
-	case APU_NR44:
-		apu.nr44 = value
-		return
-	case APU_NR50:
-		apu.onL = GetBit(value, 7)
-		apu.volumeL = (value & 0b01110000) + 1
-		apu.onR = GetBit(value, 3)
-		apu.volumeR = (value & 0b00000111) + 1
-		return
-	case APU_NR51:
-		// apu.pulseChannel1.onR = GetBit(value, 0)
-		apu.pulseChannel2.onR = GetBit(value, 1)
-		// apu.waveChannel.onR = GetBit(value, 2)
-		// apu.noiseChannel.onR = GetBit(value, 3)
-		// apu.pulseChannel1.onL = GetBit(value, 4)
-		apu.pulseChannel2.onL = GetBit(value, 5)
-		// apu.waveChannel.onL = GetBit(value, 6)
-		// apu.noiseChannel.onL = GetBit(value, 7)
-		return
-	case APU_NR52:
-		enable := GetBit(value, 7)
+func (apu *APU) writeSpeakerSelectReg(value byte) {
+	apu.soundChannels[0].rightSpeakerOn = GetBit(value, 0)
+	apu.soundChannels[1].rightSpeakerOn = GetBit(value, 1)
+	apu.soundChannels[2].rightSpeakerOn = GetBit(value, 2)
+	apu.soundChannels[3].rightSpeakerOn = GetBit(value, 3)
+	apu.soundChannels[0].leftSpeakerOn = GetBit(value, 4)
+	apu.soundChannels[1].leftSpeakerOn = GetBit(value, 5)
+	apu.soundChannels[2].leftSpeakerOn = GetBit(value, 6)
+	apu.soundChannels[3].leftSpeakerOn = GetBit(value, 7)
+}
 
-		if apu.enabled && !enable {
-			apu.enabled = false
-			apu.volumeL = 0
-			apu.volumeR = 0
-			apu.pulseChannel2.PowerOff()
-		} else if !apu.enabled && enable {
-			apu.frameSequencer = 0
-		}
+func (apu *APU) readSpeakerSelectReg() byte {
+	out := byte(0)
 
-		apu.enabled = enable
-		return
-	}
+	out = SetBit(out, 0, apu.soundChannels[0].rightSpeakerOn)
+	out = SetBit(out, 1, apu.soundChannels[1].rightSpeakerOn)
+	out = SetBit(out, 2, apu.soundChannels[2].rightSpeakerOn)
+	out = SetBit(out, 3, apu.soundChannels[3].rightSpeakerOn)
+	out = SetBit(out, 4, apu.soundChannels[0].leftSpeakerOn)
+	out = SetBit(out, 5, apu.soundChannels[1].leftSpeakerOn)
+	out = SetBit(out, 6, apu.soundChannels[2].leftSpeakerOn)
+	out = SetBit(out, 7, apu.soundChannels[3].leftSpeakerOn)
 
-	if Between(address, APU_WAVE_RAM_START, APU_WAVE_RAM_END) {
-		apu.waveRam.writeByte(address, value)
-	}
+	return out
+}
+
+func (apu *APU) writeSoundOnOffReg(value byte) {
+	apu.masterEnable = GetBit(value, 7)
+}
+
+func (apu *APU) readSoundOnOffReg() byte {
+	out := byte(0b01110000)
+
+	out = SetBit(out, 0, apu.soundChannels[0].enabled)
+	out = SetBit(out, 1, apu.soundChannels[1].enabled)
+	out = SetBit(out, 2, apu.soundChannels[2].enabled)
+	out = SetBit(out, 3, apu.soundChannels[3].enabled)
+	out = SetBit(out, 7, apu.masterEnable)
+
+	return out
 }
