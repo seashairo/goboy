@@ -12,7 +12,7 @@ with Go tests and running with the file's dir as the current dir
 
 ## Where are those test files from?
 
-https://github.com/adtennant/GameboyCPUTests
+https://github.com/retrio/gb-test-roms and https://github.com/adtennant/GameboyCPUTests
 
 I'm sure there's some way to link to their repo properly, but I've just copied
 the tests in here instead
