@@ -337,9 +337,13 @@ func mapToFriendlyName[K comparable](m map[K]string, k K) string {
 }
 
 type Cartridge struct {
-	filename string
-	romData  []byte
-	header   RomHeader
+	filename     string
+	romData      []byte
+	header       RomHeader
+	ramBanks     []*RAM
+	ramBankIndex byte
+	romBankIndex byte
+	ramEnabled   bool
 }
 
 func LoadCartridge(path string) *Cartridge {
@@ -376,20 +380,35 @@ func LoadCartridge(path string) *Cartridge {
 	copy(buffer, romData)
 
 	cartridge := Cartridge{
-		filename: path,
-		romData:  buffer,
-		header:   header,
+		filename:     path,
+		romData:      buffer,
+		header:       header,
+		romBankIndex: 1,
 	}
 
+	cartridge.initRamBanks()
 	cartridge.debugPrint()
 
 	return &cartridge
 }
 
-func (cartridge *Cartridge) debugPrint() {
-	if !DEBUG {
-		return
+func (c *Cartridge) initRamBanks() {
+	bankMap := []byte{0, 0, 1, 4, 16, 8}
+	bankCount := bankMap[c.header.ramSize]
+
+	ramBanks := make([]*RAM, 0)
+
+	for _ = range bankCount {
+		ramBanks = append(ramBanks, NewRAM(0x2000, EXTERNAL_RAM_START))
 	}
+
+	c.ramBanks = ramBanks
+}
+
+func (cartridge *Cartridge) debugPrint() {
+	// if !DEBUG {
+	// 	return
+	// }
 
 	h := cartridge.header
 
@@ -441,11 +460,71 @@ func (cartridge *Cartridge) calculateGlobalChecksum() uint16 {
 	return globalChecksum
 }
 
-func (cartridge *Cartridge) readByte(address uint16) byte {
-	return cartridge.romData[address]
+func (c *Cartridge) readByte(address uint16) byte {
+	switch {
+	case address <= ROM_BANK_0_END:
+		return c.romData[address]
+
+	case address <= SWITCHABLE_ROM_BANK_END:
+		bankOffset := uint32(address-0x4000) + uint32(c.romBankIndex)*0x4000
+		return c.romData[bankOffset]
+
+	case address <= SWITCHABLE_WORK_RAM_END:
+		if c.ramBankIndex <= 0x03 {
+			return c.ramBanks[c.ramBankIndex].readByte(address)
+		} else {
+			return c.readRTCRegister(c.ramBankIndex)
+		}
+
+	default:
+		panic(fmt.Sprintf("Failed to read from cartridge at 0x%4.4X", address))
+	}
 }
 
-func (cartridge *Cartridge) writeByte(address uint16, value byte) {
-	// You can write to ROM, it does an MBC switch but that's not implemented atm
-	// panic("Can't write to ROM")
+func (c *Cartridge) writeByte(address uint16, value byte) {
+	switch {
+	case Between(address, 0x0000, 0x1FFF):
+		c.ramEnabled = (value & 0x0F) == 0x0A
+
+	case Between(address, 0x2000, 0x3FFF):
+		bank := value & 0x7F
+		if bank == 0 {
+			bank = 1
+		}
+		c.romBankIndex = bank
+
+	case Between(address, 0x4000, 0x5FFF):
+		if value <= 0x03 {
+			c.ramBankIndex = value
+		} else if value >= 0x08 && value <= 0x0C {
+			c.ramBankIndex = value
+		}
+
+	case Between(address, 0x6000, 0x7FFF):
+		if value == 1 {
+			c.latchClockData()
+		}
+
+	case Between(address, 0xA000, 0xBFFF):
+		if c.ramEnabled {
+			if c.ramBankIndex <= 0x03 {
+				c.ramBanks[c.ramBankIndex].writeByte(address, value)
+			} else {
+				c.writeRTCRegister(c.ramBankIndex, value)
+			}
+		}
+
+	default:
+		panic(fmt.Sprintf("Can't write to cartridge at 0x%4.4X=0x%2.2X", address, value))
+	}
+}
+
+func (c *Cartridge) readRTCRegister(index byte) byte {
+	return 0
+}
+
+func (c *Cartridge) writeRTCRegister(index byte, value byte) {
+}
+
+func (c *Cartridge) latchClockData() {
 }

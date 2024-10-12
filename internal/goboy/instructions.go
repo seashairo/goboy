@@ -775,7 +775,7 @@ func readWordFromPC(cpu *CPU) uint16 {
 
 // @see https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes
 func invalidInstruction(cpu *CPU) {
-	panic("this crashes the game boy")
+	// panic("this crashes the game boy")
 }
 
 func ldR8ToR8(cpu *CPU, src CpuRegister, dest CpuRegister) {

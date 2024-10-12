@@ -1,5 +1,7 @@
 package goboy
 
+import "fmt"
+
 // @see https://gbdev.io/pandocs/Memory_Map.html
 const (
 	// 0x0000 - 0x3FFF : ROM Bank 00
@@ -87,11 +89,11 @@ func (bus *Bus) readByte(address uint16) byte {
 	} else if address <= SWITCHABLE_WORK_RAM_END {
 		return bus.wram.readByte(address)
 	} else if address <= ECHO_RAM_END {
-		// fmt.Printf("Reading from %2.2X not supported (ECHO_RAM)\n", address)
+		return bus.readByte(address - 0x2000)
 	} else if address <= OAM_END {
 		return bus.ppu.readByte(address)
 	} else if address <= NOT_USABLE_END {
-		// fmt.Printf("Reading from %2.2X not supported (NOT_USABLE)\n", address)
+		fmt.Printf("Reading from %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {
 		return bus.io.readByte(address)
 	} else if address <= HIGH_RAM_END {
@@ -106,23 +108,34 @@ func (bus *Bus) readByte(address uint16) byte {
 func (bus *Bus) writeByte(address uint16, value byte) {
 	if address <= SWITCHABLE_ROM_BANK_END {
 		bus.cartridge.writeByte(address, value)
+		return
 	} else if address <= VIDEO_RAM_END {
 		bus.ppu.writeByte(address, value)
+		return
 	} else if address <= EXTERNAL_RAM_END {
 		bus.cartridge.writeByte(address, value)
+		return
 	} else if address <= SWITCHABLE_WORK_RAM_END {
 		bus.wram.writeByte(address, value)
+		return
 	} else if address <= ECHO_RAM_END {
-		// fmt.Printf("Writing to %2.2X not supported (ECHO_RAM)\n", address)
+		bus.writeByte(address-0x2000, value)
+		return
 	} else if address <= OAM_END {
 		bus.ppu.writeByte(address, value)
+		return
 	} else if address <= NOT_USABLE_END {
-		// fmt.Printf("Writing to %2.2X not supported (NOT_USABLE)\n", address)
+		fmt.Printf("Writing to %2.2X not supported (NOT_USABLE)\n", address)
 	} else if address <= IO_REGISTERS_END {
 		bus.io.writeByte(address, value)
+		return
 	} else if address <= HIGH_RAM_END {
 		bus.hram.writeByte(address, value)
+		return
 	} else {
 		bus.interruptEnableRegister.writeByte(value)
+		return
 	}
+
+	panic(fmt.Sprintf("Failed to write 0x%2.2X to 0x%4.4X", value, address))
 }

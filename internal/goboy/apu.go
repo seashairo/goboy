@@ -139,7 +139,7 @@ func (apu *APU) generateSample() {
 
 		for _, cb := range apu.callbacks {
 			if cb != nil {
-				cb(int16(left*32767.0), int16(right*32767.0))
+				cb(int16(left*32767.0*0.2), int16(right*32767.0*0.2))
 			}
 		}
 
